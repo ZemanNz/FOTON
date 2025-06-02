@@ -11,6 +11,18 @@ Grabber grab;
 Movement move;
 Communication comm;
 
+void WaitForStart()
+{
+    while (true)
+    {
+        if (man.buttons().on() == 1)
+        {
+            break;
+        }
+        delay(10);
+    }
+}
+
 void setup()
 {
     Serial.begin(115200);
@@ -18,12 +30,18 @@ void setup()
     auto &man = rb::Manager::get(); // get manager instance as singleton
     man.install();                  // install manager
 
-    const int ultrasoundId = 0; // ultrasound id
-    // servoBus.begin(2, uart_port_t::UART_NUM_1, gpio_num_t::GPIO_NUM_4, 2560); // %edit
-    // servoBus.setAutostop(2, false); // %edit
+    servoBus.begin(2, UART_NUM_1, GPIO_NUM_27);
+    servoBus.setAutoStop(0, false); // vypne autostop leveho serva
+    servoBus.setAutoStop(1, false); // vypne autostop praveho serva
 
-    while (true)
-    {
-    }
+    WaitForStart();
+    man.leds().red(true);
+    // move.Straight(1000, 1000, 1000);
+    // move.BackwardUntillWall();
+    grab.Close();
+    delay(2000);
+    grab.Open();
+    delay(2000);
+    grab.Close();
 }
 void loop() {}

@@ -5,9 +5,9 @@ import json
 
 
 # Serial port configuration
-port = 'COM4'
-baund_rate = 115200
-#ser = serial.Serial(port, baund_rate, timeout=1)
+port = 'COM4'  # Adjust this to your serial port
+baud_rate = 115200
+ser = serial.Serial(port, baud_rate, timeout=1)
 
 
 # Function to send data over serial
@@ -88,13 +88,13 @@ def closest_to_bottom(center_list):
 
 closest_red = closest_to_bottom(red_centers)
 closest_blue = closest_to_bottom(blue_centers)
-'''
+
 # Send only the closest red and blue object coordinates
 if closest_red:
     SendData(json.dumps({"red": closest_red}))
 if closest_blue:
     SendData(json.dumps({"blue": closest_blue}))
-'''
+
 # Display image
 cv2.imshow("Detected Objects with Centers", image)
 cv2.waitKey(0)
@@ -103,3 +103,64 @@ cv2.destroyAllWindows()
 # Print centers
 print("Closest Red Object:", closest_red)
 print("Closest Blue Object:", closest_blue)
+
+
+
+"""
+
+#include <Arduino.h>
+#include <ArduinoJson.h>
+
+#define BAUD_RATE 115200
+
+void setup() {
+  Serial.begin(BAUD_RATE);
+  while (!Serial) { delay(10); }
+  Serial.println("Ready to receive data...");
+}
+
+void loop() {
+  static String input = "";
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n') {
+      // Parse the JSON object
+      StaticJsonDocument<128> doc;
+      DeserializationError error = deserializeJson(doc, input);
+      if (!error) {
+        if (doc.containsKey("red")) {
+          JsonArray red = doc["red"];
+          Serial.print("Red: x=");
+          Serial.print(red[0].as<int>());
+          Serial.print(", y=");
+          Serial.println(red[1].as<int>());
+        }
+        if (doc.containsKey("blue")) {
+          JsonArray blue = doc["blue"];
+          Serial.print("Blue: x=");
+          Serial.print(blue[0].as<int>());
+          Serial.print(", y=");
+          Serial.println(blue[1].as<int>());
+        }
+      } else {
+        Serial.print("Invalid JSON: ");
+        Serial.println(input);
+      }
+      input = "";
+    } else {
+      input += c;
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+"""

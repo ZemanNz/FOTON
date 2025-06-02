@@ -30,44 +30,26 @@ struct Communication
     Serial.println("inposition");
   }
 
-  void WaitingForBearPosData()
+  void WaitForData()
   {
-
-    // ceka na distance to bear
     while (true)
     {
       if (Serial.available() > 0)
       {
-        int num = 9999;
+        int num = 0;
         String data = Serial.readStringUntil('\n');
         const char *daata = data.c_str();
         num = std::atoi(daata);
 
-        if (num != 9999)
+        if (num != 0)
         {
-          x_distance = num;
-          break;
+          man.leds().yellow(true);
+          
         }
         delay(10);
-      }
-      // ceka na y distance medveda
-    }
-    while (true)
-    {
-      if (Serial.available() > 0)
-      {
-        int num = 9999;
-        String data = Serial.readStringUntil('\n');
-        const char *daata = data.c_str();
-        num = std::atoi(daata);
-
-        if (num != 9999)
-        {
-          y_distance = num;
-          break;
-        }
-        delay(10);
+        break;
       }
     }
   }
+
 };

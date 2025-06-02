@@ -33,15 +33,17 @@ void setup()
     servoBus.begin(2, UART_NUM_1, GPIO_NUM_27);
     servoBus.setAutoStop(0, false); // vypne autostop leveho serva
     servoBus.setAutoStop(1, false); // vypne autostop praveho serva
+    
+    comm.WaitForData(); // cekani na zpravu z Raspberry
 
-    WaitForStart();
-    man.leds().red(true);
+    //WaitForStart();
+    //man.leds().red(true);
     // move.Straight(1000, 1000, 1000);
     // move.BackwardUntillWall();
-    grab.Close();
-    delay(2000);
-    grab.Open();
-    delay(2000);
-    grab.Close();
+    //grab.Close();
+    //delay(2000);
+    //grab.Open();
+    //delay(2000);
+    //grab.Close();
 }
 void loop() {}

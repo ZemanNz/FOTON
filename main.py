@@ -91,9 +91,9 @@ closest_blue = closest_to_bottom(blue_centers)
 
 # Send only the closest red and blue object coordinates
 if closest_red:
-    SendData(json.dumps({"red": closest_red}))
+    SendData(closest_red)
 if closest_blue:
-    SendData(json.dumps({"blue": closest_blue}))
+    SendData(closest_blue)
 
 # Display image
 cv2.imshow("Detected Objects with Centers", image)
@@ -104,63 +104,3 @@ cv2.destroyAllWindows()
 print("Closest Red Object:", closest_red)
 print("Closest Blue Object:", closest_blue)
 
-
-
-"""
-
-#include <Arduino.h>
-#include <ArduinoJson.h>
-
-#define BAUD_RATE 115200
-
-void setup() {
-  Serial.begin(BAUD_RATE);
-  while (!Serial) { delay(10); }
-  Serial.println("Ready to receive data...");
-}
-
-void loop() {
-  static String input = "";
-  while (Serial.available()) {
-    char c = Serial.read();
-    if (c == '\n') {
-      // Parse the JSON object
-      StaticJsonDocument<128> doc;
-      DeserializationError error = deserializeJson(doc, input);
-      if (!error) {
-        if (doc.containsKey("red")) {
-          JsonArray red = doc["red"];
-          Serial.print("Red: x=");
-          Serial.print(red[0].as<int>());
-          Serial.print(", y=");
-          Serial.println(red[1].as<int>());
-        }
-        if (doc.containsKey("blue")) {
-          JsonArray blue = doc["blue"];
-          Serial.print("Blue: x=");
-          Serial.print(blue[0].as<int>());
-          Serial.print(", y=");
-          Serial.println(blue[1].as<int>());
-        }
-      } else {
-        Serial.print("Invalid JSON: ");
-        Serial.println(input);
-      }
-      input = "";
-    } else {
-      input += c;
-    }
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-"""

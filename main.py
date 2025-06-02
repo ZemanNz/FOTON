@@ -1,91 +1,65 @@
-import numpy as np
-import time
-import matplotlib.pyplot as plt
 import cv2
-
-
-#rozmezi barev puku v hsv modrych 
-low_b = np.array([180, 10, 10])
-high_b = np.array([260, 100,100])
-
-
-low_r = np.array([30,50,100])#deafult 160,50,100
-high_r = np.array([190,255,255])
-
-
-
-#najde modre puky, a vrati jejich souradnice
-def FindBluePucks (image, low, high):
-    #color masking
-    pucks_cords=[]
-    
-    pozicepuku = []
-
-    mask = cv2.inRange(img,low,high)
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE )
-    if len(contours) != 0:
-        for contour in contours:
-            if cv2.contourArea(contour) > 10000:
-                x,y,w,h = cv2.boundingRect(contour)
-                p= x,y,w,h
-                cv2.rectangle(img, (x,y),(x+w,y+h),(255,255,255),5)
-                pozicepuku.append(p)
-
-    i = 0
-    for a in pozicepuku:
-        x,y,w,h = pozicepuku[i]
-        center_x = (x + w/2)
-        center_y = (y + h/2)
-        print(center_x, center_y)
-        cords = center_x,center_y
-        pucks_cords.append(cords)
-        i = i + 1
-    return pucks_cords
-
-
-def FindRedPucks (image, low, high):
-    #color masking
-    pucks_cords=[]
-    
-    pozicepuku = []
-
-    mask = cv2.inRange(img,low,high)
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE )
-    if len(contours) != 0:
-        for contour in contours:
-            if cv2.contourArea(contour) > 10000:
-                x,y,w,h = cv2.boundingRect(contour)
-                p= x,y,w,h
-                cv2.rectangle(img, (x,y),(x+w,y+h),(0,0,0),5)
-                pozicepuku.append(p)
-
-    i = 0
-    for a in pozicepuku:
-        x,y,w,h = pozicepuku[i]
-        center_x = (x + w/2)
-        center_y = (y + h/2)
-        print(center_x, center_y)
-        cords = center_x,center_y
-        pucks_cords.append(cords)
-        i = i + 1
-    return pucks_cords
-
-
-#camera setup
+import numpy as np
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
-cap.set(3,960) # sirka px
-cap.set(4,640) # vyska px
+cap.set(3,960) # Image height
+cap.set(4,640) # Image width
 
 
-#udela fotku
-ret, img = cap.read()
-img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-FindBluePucks(img,low_b,high_b)
-FindRedPucks(img,low_r,high_r)
 
-#toto ukaze fotku
-cv2.imshow('image', cv2.cvtColor(img, cv2.COLOR_HSV2BGR))
-#odejdu b
-cv2.waitKey(0) == ord('b')
+# Load image
+ret, image = cap.read()
+hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+# Define HSV ranges
+lower_red1 = np.array([0, 120, 70])
+upper_red1 = np.array([10, 255, 255])
+lower_red2 = np.array([170, 120, 70])
+upper_red2 = np.array([180, 255, 255])
+lower_blue = np.array([100, 150, 0])
+upper_blue = np.array([140, 255, 255])
+
+# Create masks
+mask_red1 = cv2.inRange(hsv, lower_red1, upper_red1)
+mask_red2 = cv2.inRange(hsv, lower_red2, upper_red2)
+mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
+
+# Lists to store centers
+red_centers = []
+blue_centers = []
+
+# Find red object contours
+contours_red, _ = cv2.findContours(mask_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+for cnt in contours_red:
+    area = cv2.contourArea(cnt)
+    if area > 500:
+        x, y, w, h = cv2.boundingRect(cnt)
+        cx = x + w // 2
+        cy = y + h // 2
+        red_centers.append((cx, cy))
+        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+        cv2.circle(image, (cx, cy), 5, (0, 0, 255), -1)
+        cv2.putText(image, "Red", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+# Find blue object contours
+contours_blue, _ = cv2.findContours(mask_blue, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+for cnt in contours_blue:
+    area = cv2.contourArea(cnt)
+    if area > 500:
+        x, y, w, h = cv2.boundingRect(cnt)
+        cx = x + w // 2
+        cy = y + h // 2
+        blue_centers.append((cx, cy))
+        cv2.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        cv2.circle(image, (cx, cy), 5, (255, 0, 0), -1)
+        cv2.putText(image, "Blue", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+
+# Display image
+cv2.imshow("Detected Objects with Centers", image)
+cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+# Print centers
+print("Red Object Centers:", red_centers)
+print("Blue Object Centers:", blue_centers)

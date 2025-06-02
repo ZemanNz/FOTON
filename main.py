@@ -1,5 +1,21 @@
 import cv2
 import numpy as np
+import serial
+import json
+
+
+# Serial port configuration
+port = 'COM4'  # Adjust this to your serial port
+baud_rate = 115200
+ser = serial.Serial(port, baud_rate, timeout=1)
+
+
+# Function to send data over serial
+def SendData(data):
+    data = f"{data}\n"  # Ensure data ends with a newline
+    ser.write(data.encode('utf-8'))
+
+
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
 cap.set(3,960) # Image height
@@ -16,7 +32,8 @@ lower_red1 = np.array([0, 120, 70])
 upper_red1 = np.array([10, 255, 255])
 lower_red2 = np.array([170, 120, 70])
 upper_red2 = np.array([180, 255, 255])
-lower_blue = np.array([100, 150, 0])
+
+lower_blue = np.array([90, 50, 50])
 upper_blue = np.array([140, 255, 255])
 
 # Create masks
@@ -55,11 +72,95 @@ for cnt in contours_blue:
         cv2.circle(image, (cx, cy), 5, (255, 0, 0), -1)
         cv2.putText(image, "Blue", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
+# Find closest red and blue object to image center
+img_center = (image.shape[1] // 2, image.shape[0] // 2)
+
+def closest(center_list):
+    if not center_list:
+        return None
+    return min(center_list, key=lambda c: (c[0] - img_center[0])**2 + (c[1] - img_center[1])**2)
+
+def closest_to_bottom(center_list):
+    if not center_list:
+        return None
+    # Find the center with the largest y value (closest to bottom)
+    return max(center_list, key=lambda c: c[1])
+
+closest_red = closest_to_bottom(red_centers)
+closest_blue = closest_to_bottom(blue_centers)
+
+# Send only the closest red and blue object coordinates
+if closest_red:
+    SendData(json.dumps({"red": closest_red}))
+if closest_blue:
+    SendData(json.dumps({"blue": closest_blue}))
+
 # Display image
 cv2.imshow("Detected Objects with Centers", image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
 # Print centers
-print("Red Object Centers:", red_centers)
-print("Blue Object Centers:", blue_centers)
+print("Closest Red Object:", closest_red)
+print("Closest Blue Object:", closest_blue)
+
+
+
+"""
+
+#include <Arduino.h>
+#include <ArduinoJson.h>
+
+#define BAUD_RATE 115200
+
+void setup() {
+  Serial.begin(BAUD_RATE);
+  while (!Serial) { delay(10); }
+  Serial.println("Ready to receive data...");
+}
+
+void loop() {
+  static String input = "";
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n') {
+      // Parse the JSON object
+      StaticJsonDocument<128> doc;
+      DeserializationError error = deserializeJson(doc, input);
+      if (!error) {
+        if (doc.containsKey("red")) {
+          JsonArray red = doc["red"];
+          Serial.print("Red: x=");
+          Serial.print(red[0].as<int>());
+          Serial.print(", y=");
+          Serial.println(red[1].as<int>());
+        }
+        if (doc.containsKey("blue")) {
+          JsonArray blue = doc["blue"];
+          Serial.print("Blue: x=");
+          Serial.print(blue[0].as<int>());
+          Serial.print(", y=");
+          Serial.println(blue[1].as<int>());
+        }
+      } else {
+        Serial.print("Invalid JSON: ");
+        Serial.println(input);
+      }
+      input = "";
+    } else {
+      input += c;
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+"""

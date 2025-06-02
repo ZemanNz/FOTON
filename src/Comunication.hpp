@@ -36,6 +36,7 @@ struct Communication
     {
       if (Serial.available() > 0)
       {
+        man.leds().red(true);
         int num = 0;
         String data = Serial.readStringUntil('\n');
         const char *daata = data.c_str();
@@ -44,12 +45,11 @@ struct Communication
         if (num != 0)
         {
           man.leds().yellow(true);
-          
+          delay(50000);
         }
         delay(10);
         break;
       }
     }
   }
-
 };

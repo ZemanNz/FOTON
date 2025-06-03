@@ -106,4 +106,10 @@ struct Sensors{
             return COLOR_RED; // Default case
         }
     }
+
+
+    void MeasureLaser(){
+
+        
+    }
 };

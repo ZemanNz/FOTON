@@ -11,6 +11,10 @@ Adafruit_VL53L0X laser2; // Přes Wire1 (26, 14)
 extern TwoWire Wire1;
 
 void setup() {
+
+   auto &man = rb::Manager::get(); // get manager instance as singleton
+    man.install();  // install manager, this will initialize the hardware and the
+    
   Serial.begin(115200);
   delay(100);
 
@@ -23,12 +27,12 @@ void setup() {
   }
 
   // Inicializace druhé sběrnice a senzoru
-//   Wire1.begin(26, 14);
-//   Wire1.setClock(400000);
-//   if (!laser2.begin(0x29, false, &Wire1)) {
-//     Serial.println("Nepodařilo se inicializovat senzor 2 na Wire1!");
-//     while (1);
-//   }
+  Wire1.begin(26, 14);
+  Wire1.setClock(400000);
+  if (!laser2.begin(0x29, false, &Wire1)) {
+    Serial.println("Nepodařilo se inicializovat senzor 2 na Wire1!");
+    while (1);
+  }
 
   Serial.println("Oba senzory připraveny.");
 }
@@ -38,7 +42,7 @@ void loop() {
 
   // Provést měření
   laser1.rangingTest(&m1, false);
-  //laser2.rangingTest(&m2, false);
+  laser2.rangingTest(&m2, false);
 
   //Výpis výsledků
   Serial.print("Senzor 1 (Wire): ");
@@ -49,12 +53,12 @@ void loop() {
     Serial.print("Mimo rozsah");
   }
 //delay(100); // Krátká prodleva mezi měřeními
-//   Serial.print("  |  Senzor 2 (Wire1): ");
-//   if (m2.RangeStatus != 4) {
-//     Serial.print(m2.RangeMilliMeter);
-//     Serial.println(" mm");
-//   } else {
-//     Serial.println("Mimo rozsah");
-//   }
+  Serial.print("  |  Senzor 2 (Wire1): ");
+  if (m2.RangeStatus != 4) {
+    Serial.print(m2.RangeMilliMeter);
+    Serial.println(" mm");
+  } else {
+    Serial.println("Mimo rozsah");
+  }
   delay(1000);
 }

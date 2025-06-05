@@ -10,6 +10,47 @@ Adafruit_VL53L0X laser2; // Přes Wire1 (26, 14)
 // Vytvoření nové sběrnice Wire1
 extern TwoWire Wire1;
 
+void WaitForStart()
+{
+    while (true)
+    {
+        if (man.buttons().on() == 1)
+        {
+            break;
+        }
+        delay(10);
+    }
+}
+
+void CheckBattery()
+{
+    const auto &bat = man.battery();
+    static const uint32_t VOLTAGE_MAX = 7200; //%edit
+    static const uint32_t VOLTAGE_MIN = 6800; //%edit
+    int i = 0;
+    int voltage = 0;
+    for (i = 0; i < 2; ++i)
+    {
+        voltage = bat.voltageMv();
+        // Vypočítej procenta (omez na 0-100)
+        int pct = (voltage - VOLTAGE_MIN) * 100 / (VOLTAGE_MAX - VOLTAGE_MIN);
+        if (pct > 100)
+            pct = 100;
+        if (pct < 0)
+            pct = 0;
+
+        if (i > 0)
+        {
+            printf("Battery at %d%%, %dmv\n", pct, voltage);
+            if (voltage < VOLTAGE_MIN)
+            {
+                printf("Je třeba nabít baterii!\n");
+            }
+        }
+        delay(1000);
+    }
+}
+
 void setup() {
 
    auto &man = rb::Manager::get(); // get manager instance as singleton
@@ -35,6 +76,12 @@ void setup() {
   }
 
   Serial.println("Oba senzory připraveny.");
+
+  WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
+
+  CheckBattery(); // Zkontroluj stav baterie
+
+  
 }
 
 void loop() {

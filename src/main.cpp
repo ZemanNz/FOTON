@@ -7,12 +7,15 @@ auto &man = rb::Manager::get(); // pro fungovani RBCX
 #include "Grabber.hpp"
 #include "Comunication.hpp"
 #include "Movement.hpp"
+#include "Arm.hpp"
 #include "Sensors.hpp"
+
 
 Grabber grab;
 Movement move;
 Communication comm;
 Sensors sens;
+Arm arm;
 
 // Instance senzorů
 Adafruit_VL53L0X laser1; // Přes Wire (21, 22)
@@ -36,8 +39,8 @@ void WaitForStart()
 void CheckBattery()
 {
     const auto &bat = man.battery();
-    static const uint32_t VOLTAGE_MAX = 7200; //%edit
-    static const uint32_t VOLTAGE_MIN = 6800; //%edit
+    static const uint32_t VOLTAGE_MAX = 7800; //%edit
+    static const uint32_t VOLTAGE_MIN = 7000; //%edit
     int i = 0;
     int voltage = 0;
     for (i = 0; i < 2; ++i)
@@ -78,13 +81,32 @@ void setup() {
   while (true)
   {
     sens.PrintRGBToSerial(); // Vytiskni barvy z RGB senzorů do sériového monitoru
-    delay(1000); // Krátká prodleva pro čitelnost výstupu
+    delay(1000); // Krátká prodleva pro stabil
   }
+  
+  servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
+  servoBus.set(0, 0_deg); 
+  servoBus.set(1, 0_deg);  
+  
+  arm.SmallerUp();
+
+  WaitForStart();
+  servoBus.set(1, 28_deg);
+  Serial.println("Servo 0 nastaveno na 30 stupňů");
+  delay(1000); // Krátká prodleva pro stabilizaci
+  WaitForStart();
+  servoBus.set(1, 0_deg); 
+  Serial.println("Servo 0 nastaveno na 0 stupňů");
+
+
+  delay(1000); // Krátká prodleva pro stabilizaci
+  WaitForStart();
+  
   
 
   CheckBattery(); // Zkontroluj stav baterie
 
-  move.Straight(32000, 1000, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+  // move.Straight(32000, 1000, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
 
 }
 

@@ -154,35 +154,24 @@ struct Movement
 
   void BackwardUntillWall()
   {
-    const int ultrasound_Id = 0;  // us id
-    const int stop_distance = 50; // vzdálenost v mm, kdy má robot zastavit
-
-    // Funkce pro průměr ze tří měření
-    auto averageDistance = [&]() -> int
-    {
-      int d1 = man.ultrasound(ultrasound_Id).measure();
-      delay(5);
-      int d2 = man.ultrasound(ultrasound_Id).measure();
-      delay(5);
-      int d3 = man.ultrasound(ultrasound_Id).measure();
-      return (d1 + d2 + d3) / 3;
-    };
-
-    int distance = averageDistance();
-    delay(1);
-
-    while (distance > stop_distance) // dokud není překážka blízko
-    {
-      man.motor(motorL).speed(2500);
-      man.motor(motorR).speed(-2500);
-
-      distance = averageDistance();
-      printf("Distance: %4d mm (%3d cm)\n", distance, distance / 10);
+    while (man.buttons().left() == 0 || man.buttons().right() == 0) //left je opravdu leve tlaitko
+    { //(ticks_M2 < distance)&& (ticks_M3 < distance)
+      if(man.buttons().left() == 1){
+        man.motor(rb::MotorId::M3).speed(-3000);
+        man.motor(rb::MotorId::M2).speed(1000);
+      }
+      else if(man.buttons().right() == 1){
+        man.motor(rb::MotorId::M2).speed(3000);
+        man.motor(rb::MotorId::M3).speed(-1000);  
+      }
+      else{
+      man.motor(rb::MotorId::M2).speed(2500);
+      man.motor(rb::MotorId::M3).speed(-2500);
+      delay(10);
+      }
     }
-    delay(2000);
-
-    man.motor(motorL).speed(0);
-    man.motor(motorR).speed(0);
+  man.motor(rb::MotorId::M2).speed(0);
+  man.motor(rb::MotorId::M3).speed(0);
   }
 
   /**

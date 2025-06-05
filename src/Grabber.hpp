@@ -10,15 +10,21 @@ static SmartServoBus servoBus;
 struct Grabber
 {
     // nastavy grabber na open pozici
-    void Open()
+    void SmallerArmClose()
     {
-        servoBus.set(0, 240_deg); // prave servo
-        servoBus.set(1, 0_deg);   // leve servo
+        servoBus.set(0, 12_deg); 
     }
-    // nastavy grabber na close pozici
-    void Close()
+    void SmallerArmOpen()
     {
-        servoBus.set(0, 220_deg);
-        servoBus.set(1, 20_deg);
+        servoBus.set(0, 0_deg); 
+    }
+    
+    void BiggerArmClose()
+    {
+        servoBus.set(0, 28_deg); 
+    }
+    void BiggerArmOpen()
+    {
+        servoBus.set(0, 0_deg); 
     }
 };

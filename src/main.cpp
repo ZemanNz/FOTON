@@ -3,6 +3,17 @@
 #include <Adafruit_VL53L0X.h>
 #include <RBCX.h>
 
+auto &man = rb::Manager::get(); // pro fungovani RBCX
+#include "Grabber.hpp"
+#include "Comunication.hpp"
+#include "Movement.hpp"
+#include "Sensors.hpp"
+
+Grabber grab;
+Movement move;
+Communication comm;
+Sensors sens;
+
 // Instance senzorů
 Adafruit_VL53L0X laser1; // Přes Wire (21, 22)
 Adafruit_VL53L0X laser2; // Přes Wire1 (26, 14)
@@ -59,29 +70,22 @@ void setup() {
   Serial.begin(115200);
   delay(100);
 
-  // Inicializace první sběrnice a senzoru
-  Wire.begin(21, 22);  
-  //Wire.setClock(400000);
-  if (!laser1.begin(0x29, false, &Wire)) {
-    Serial.println("Nepodařilo se inicializovat senzor 1 na Wire!");
-    while (1);
-  }
 
-  // Inicializace druhé sběrnice a senzoru
-  Wire1.begin(26, 14);
-  Wire1.setClock(400000);
-  if (!laser2.begin(0x29, false, &Wire1)) {
-    Serial.println("Nepodařilo se inicializovat senzor 2 na Wire1!");
-    while (1);
-  }
-
-  Serial.println("Oba senzory připraveny.");
+  sens.InitRGB(); // Inicializace RGB senzorů
 
   WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
 
+  while (true)
+  {
+    sens.PrintRGBToSerial(); // Vytiskni barvy z RGB senzorů do sériového monitoru
+    delay(1000); // Krátká prodleva pro čitelnost výstupu
+  }
+  
+
   CheckBattery(); // Zkontroluj stav baterie
 
-  
+  move.Straight(32000, 1000, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+
 }
 
 void loop() {

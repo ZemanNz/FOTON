@@ -4,8 +4,8 @@
 
 struct Movement
 {
-  rb::MotorId motorL = rb::MotorId::M1; // levý motor
-  rb::MotorId motorR = rb::MotorId::M4; // pravý motor
+  rb::MotorId motorL = rb::MotorId::M4; // levý motor
+  rb::MotorId motorR = rb::MotorId::M1; // pravý motor
   double mm_to_ticks = 0.215;           // konstanta pro prepocet tics enkoderu na mm
   int wheel_base = 165;                 // vzdalenost mezi koly robota v mm
   int last_ticks_M3 = 0;                // pravy motor

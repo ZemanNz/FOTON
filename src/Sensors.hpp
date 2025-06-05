@@ -10,8 +10,8 @@ struct Sensors{
     static const uint8_t RGB_SDA_down_pin = 14; // *************************************************
     static const uint8_t RGB_SCL_down_pin = 26; 
 
-    Adafruit_TCS34725 rgb_1 = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_1X);
-    Adafruit_TCS34725 rgb_2 = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_1X);
+    Adafruit_TCS34725 rgb_front = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_1X);
+    Adafruit_TCS34725 rgb_down = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_1X);
 
     float r_1 = 0, g_1 = 0, b_1 = 0; // barvy na barevnem senzoru 1
     float r_2 = 0, g_2 = 0, b_2 = 0; // barvy na barevnem senzoru 2
@@ -27,13 +27,13 @@ struct Sensors{
         Wire1.begin(RGB_SDA_front_pin, RGB_SCL_front_pin, 100000); // pro predni senzor 
         Wire.begin(RGB_SDA_down_pin, RGB_SCL_down_pin, 100000); // pro spodni senzor 
 
-        if (!rgb_1.begin(TCS34725_ADDRESS, &Wire1)) {
+        if (!rgb_front.begin(TCS34725_ADDRESS, &Wire1)) {
         Serial.printf("Can not connect to the front RGB sensor");
         delay(500);  // aby se zprava urcite stihla vypsat 
         abort();
         }
 
-        if (!rgb_2.begin(TCS34725_ADDRESS, &Wire)) {
+        if (!rgb_down.begin(TCS34725_ADDRESS, &Wire)) {
             Serial.printf("Can not connect to the down RGB sensor");
             delay(500); 
             abort();
@@ -41,8 +41,8 @@ struct Sensors{
     }
 
     void ReadRGB(){
-        rgb_1.getRGB(&r_1, &g_1, &b_1);
-        rgb_2.getRGB(&r_2, &g_2, &b_2);
+        rgb_front.getRGB(&r_1, &g_1, &b_1);
+        rgb_down.getRGB(&r_2, &g_2, &b_2);
     }
 
     void PrintRGBToSerial(){

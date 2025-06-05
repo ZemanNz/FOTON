@@ -65,6 +65,16 @@ void CheckBattery()
     }
 }
 
+void GoToField(){
+  move.Acceleration(300, 10000, 500);
+  move.ArcRight(170,180);
+  //move.Straight(3200,100,5000);
+  move.Arcleft(150, 150);
+  move.Straight(32000, 1300,4000);
+  move.Acceleration(32000, 100, 320);
+  move.Stop();
+}
+
 void setup() {
 
    auto &man = rb::Manager::get(); // get manager instance as singleton
@@ -76,7 +86,25 @@ void setup() {
 
   sens.InitRGB(); // Inicializace RGB senzorů
 
+  arm.BiggerUp();
+  arm.SmallerUp();
+
   WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
+
+  move.TurnLeft(90); // Otoč robota doleva o 90 stupňů
+
+  WaitForStart();
+
+  GoToField();
+
+  move.TurnLeft(90);
+  
+
+  WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
+
+  arm.BiggerUp();
+  arm.SmallerUp();
+  GoToField(); // Příkaz pro pohyb robota na startovní pole
 
   while (true)
   {

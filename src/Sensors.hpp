@@ -2,6 +2,12 @@
 #include <Arduino.h>
 #include "Adafruit_TCS34725.h"
 
+typedef enum {
+        COLOR_RED,
+        COLOR_GREEN,
+        COLOR_BLUE,
+    } Color;
+
 struct Sensors{
 
     static const uint8_t RGB_SDA_front_pin = 21;
@@ -72,12 +78,6 @@ struct Sensors{
             return false;
         }
     }
-
-    typedef enum {
-        COLOR_RED,
-        COLOR_GREEN,
-        COLOR_BLUE,
-    } Color;
 
     Color GetColorRGB1() {
         ReadRGB();

@@ -24,6 +24,9 @@ Adafruit_VL53L0X laser2; // Přes Wire1 (26, 14)
 // Vytvoření nové sběrnice Wire1
 extern TwoWire Wire1;
 
+
+int final_time = 220;
+
 void WaitForStart()
 {
     while (true)
@@ -67,15 +70,121 @@ void CheckBattery()
 
 void GoToField(){
   move.Acceleration(300, 10000, 500);
+  Serial.println("go to field1");
   move.ArcRight(170,180);
+  Serial.println("go to field2");
   //move.Straight(3200,100,5000);
   move.Arcleft(150, 150);
-  move.Straight(32000, 1300,4000);
+  Serial.println("go to field3");
+  move.Straight(32000, 1500,4000);
+  Serial.println("go to field4");
   move.Acceleration(32000, 100, 320);
+  Serial.println("go to field5");
   move.Stop();
 }
 
-void setup() {
+void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
+{
+    if (smaller_arm_brick == COLOR_RED)
+    {
+      move.TurnLeft(90);
+      move.BackwardUntillWall();
+      move.Straight(10000, 150, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      move.Stop();
+      move.TurnRight(90);
+      move.BackwardUntillWall();
+      arm.SmallerBack();
+      if (bigger_arm_brick == COLOR_RED) arm.BiggerBack();
+      delay(1000);
+      if (bigger_arm_brick == COLOR_RED) grab.BiggerArmOpen();
+      grab.SmallerArmOpen();
+      delay(1000);
+      move.Straight(10000, 100, 1000);
+    }
+    else if (smaller_arm_brick == COLOR_GREEN)
+    {
+      move.TurnLeft(90);
+      move.BackwardUntillWall();
+      move.Straight(10000, 600, 5000);
+      move.Stop();
+      move.TurnRight(90);
+      move.BackwardUntillWall();
+      arm.SmallerBack();
+      if (bigger_arm_brick == COLOR_GREEN) arm.BiggerBack();
+      delay(1000);
+      if (bigger_arm_brick == COLOR_GREEN) grab.BiggerArmOpen();
+      grab.SmallerArmOpen();
+      delay(1000);
+      move.Straight(10000, 100, 1000);
+    }
+    else // blue
+    {
+      move.TurnRight(90);
+      move.BackwardUntillWall();
+      move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      move.Stop();
+      move.TurnLeft(90);
+      move.BackwardUntillWall();
+      arm.SmallerBack();
+      if (bigger_arm_brick == COLOR_BLUE) arm.BiggerBack();
+      delay(1000);
+      if (bigger_arm_brick == COLOR_BLUE) grab.BiggerArmOpen();
+      grab.SmallerArmOpen();
+      delay(1000);
+      move.Straight(10000, 100, 1000);
+    }
+    arm.SmallerUp();
+    arm.BiggerUp();
+    if (bigger_arm_brick != smaller_arm_brick)
+    {
+      if (bigger_arm_brick == COLOR_RED)
+      {
+        move.TurnLeft(90);
+        move.BackwardUntillWall();
+        move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+        move.Stop();
+        move.TurnRight(90);
+        move.BackwardUntillWall();
+        arm.BiggerBack();
+        delay(1000);
+        grab.BiggerArmOpen();
+        delay(1000);
+        move.Straight(10000, 100, 1000);
+      }
+      else if (bigger_arm_brick == COLOR_GREEN)
+      {
+        move.TurnLeft(90);
+        move.BackwardUntillWall();
+        move.Straight(10000, 600, 5000);
+        move.Stop();
+        move.TurnRight(90);
+        move.BackwardUntillWall();
+        arm.BiggerBack();
+        delay(1000);
+        grab.BiggerArmOpen();
+        delay(1000);
+        move.Straight(10000, 100, 1000);
+      }
+      else // blue
+      {
+        move.TurnRight(90);
+        move.BackwardUntillWall();
+        move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+        move.Stop();
+        move.TurnLeft(90);
+        move.BackwardUntillWall();
+        arm.BiggerBack();
+        delay(1000);
+        grab.BiggerArmOpen();
+        delay(1000);
+        move.Straight(10000, 100, 1000);
+      }
+    }
+    arm.BiggerUp();
+}
+
+
+void setup(){
 
    auto &man = rb::Manager::get(); // get manager instance as singleton
     man.install();  // install manager, this will initialize the hardware and the
@@ -86,56 +195,52 @@ void setup() {
 
   sens.InitRGB(); // Inicializace RGB senzorů
 
-  arm.BiggerUp();
-  arm.SmallerUp();
+  servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
+  servoBus.set(0, 0_deg); 
+  servoBus.set(1, 0_deg);
+
 
   WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
 
-  move.TurnLeft(90); // Otoč robota doleva o 90 stupňů
+  float start_time = millis()/1000; // Ulož čas spuštění v sekundách
+  Serial.printf("Start time: %.2f seconds\n", start_time);
 
-  WaitForStart();
+  arm.BiggerUp();
+  arm.SmallerUp();
 
+  Serial.println("Starting robot movement...");
+  
   GoToField();
 
   move.TurnLeft(90);
-  
+  move.BackwardUntillWall();
+  for (size_t lap = 0; (lap < 5) && (millis()/1000 - start_time < final_time); lap++)
+  {
+    move.Acceleration(1000, 20000, 200);
+    move.Straight(32000, 800 - lap*200, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+    move.TurnLeft(90); // Otoč robota doprava o 90 stupňů
+    arm.SmallerFront();
+    arm.BiggerFront();
+    move.BackwardUntillWall();
+    move.Straight(32000, 600, 5000);
+    grab.SmallerArmClose();
+    grab.BiggerArmClose();
+    delay(500);
+    Color smaller_arm_brick = sens.GetColorRGB2();
+    Color bigger_arm_brick = sens.GetColorRGB1();
+    move.BackwardUntillWall();
+    move.Straight(10000, 100, 1000);
+    BrickDeliver(smaller_arm_brick, bigger_arm_brick);
+    move.TurnRight(90);
+    move.BackwardUntillWall();
+  }
 
-  WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
-
-  arm.BiggerUp();
-  arm.SmallerUp();
-  GoToField(); // Příkaz pro pohyb robota na startovní pole
 
   while (true)
   {
     sens.PrintRGBToSerial(); // Vytiskni barvy z RGB senzorů do sériového monitoru
     delay(1000); // Krátká prodleva pro stabil
   }
-  
-  servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
-  servoBus.set(0, 0_deg); 
-  servoBus.set(1, 0_deg);  
-  
-  arm.SmallerUp();
-
-  WaitForStart();
-  servoBus.set(1, 28_deg);
-  Serial.println("Servo 0 nastaveno na 30 stupňů");
-  delay(1000); // Krátká prodleva pro stabilizaci
-  WaitForStart();
-  servoBus.set(1, 0_deg); 
-  Serial.println("Servo 0 nastaveno na 0 stupňů");
-
-
-  delay(1000); // Krátká prodleva pro stabilizaci
-  WaitForStart();
-  
-  
-
-  CheckBattery(); // Zkontroluj stav baterie
-
-  // move.Straight(32000, 1000, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
-
 }
 
 void loop() {

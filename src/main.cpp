@@ -1,15 +1,31 @@
-#include "SmartServoBus.hpp"
-#include "RBCX.h"
 #include <Arduino.h>
-#include <thread>
+#include <Wire.h>
+#include <Adafruit_VL53L0X.h>
+#include <RBCX.h>
+
 auto &man = rb::Manager::get(); // pro fungovani RBCX
 #include "Grabber.hpp"
 #include "Comunication.hpp"
 #include "Movement.hpp"
+#include "Arm.hpp"
+#include "Sensors.hpp"
+
 
 Grabber grab;
 Movement move;
 Communication comm;
+Sensors sens;
+Arm arm;
+
+// Instance senzorů
+Adafruit_VL53L0X laser1; // Přes Wire (21, 22)
+Adafruit_VL53L0X laser2; // Přes Wire1 (26, 14)
+
+// Vytvoření nové sběrnice Wire1
+extern TwoWire Wire1;
+
+
+int final_time = 220;
 
 void WaitForStart()
 {
@@ -26,12 +42,14 @@ void WaitForStart()
 void CheckBattery()
 {
     const auto &bat = man.battery();
-    static const uint32_t VOLTAGE_MAX = 4200 * 2;
-    static const uint32_t VOLTAGE_MIN = 7200;
+    static const uint32_t VOLTAGE_MAX = 7800; //%edit
+    static const uint32_t VOLTAGE_MIN = 7000; //%edit
+    int i = 0;
     int voltage = 0;
-    for (int i = 0; i < 2; ++i)
+    for (i = 0; i < 2; ++i)
     {
         voltage = bat.voltageMv();
+        // Vypočítej procenta (omez na 0-100)
         int pct = (voltage - VOLTAGE_MIN) * 100 / (VOLTAGE_MAX - VOLTAGE_MIN);
         if (pct > 100)
             pct = 100;
@@ -39,8 +57,8 @@ void CheckBattery()
             pct = 0;
 
         if (i > 0)
-        { // První měření ignorovat
-            printf("Battery at %d%%, %dmv\n", i, pct, voltage);
+        {
+            printf("Battery at %d%%, %dmv\n", pct, voltage);
             if (voltage < VOLTAGE_MIN)
             {
                 printf("Je třeba nabít baterii!\n");
@@ -50,28 +68,203 @@ void CheckBattery()
     }
 }
 
-void setup()
-{
-    Serial.begin(115200);
-
-    auto &man = rb::Manager::get(); // get manager instance as singleton
-    man.install();                  // install manager
-
-    servoBus.begin(2, UART_NUM_1, GPIO_NUM_27);
-    servoBus.setAutoStop(0, false); // vypne autostop leveho serva
-    servoBus.setAutoStop(1, false); // vypne autostop praveho serva
-
-    // comm.WaitForData(); // cekani na zpravu z Raspberry
-
-    CheckBattery();
-    // WaitForStart();
-    // man.leds().red(true);
-    //  move.Straight(1000, 1000, 1000);
-    //  move.BackwardUntillWall();
-    // grab.Close();
-    // delay(2000);
-    // grab.Open();
-    // delay(2000);
-    // grab.Close();
+void GoToField(){
+  move.Acceleration(300, 10000, 500);
+  Serial.println("go to field1");
+  move.ArcRight(170,180);
+  Serial.println("go to field2");
+  //move.Straight(3200,100,5000);
+  move.Arcleft(150, 150);
+  Serial.println("go to field3");
+  move.Straight(32000, 1500,4000);
+  Serial.println("go to field4");
+  move.Acceleration(32000, 100, 320);
+  Serial.println("go to field5");
+  move.Stop();
 }
-void loop() {}
+
+void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
+{
+    if (smaller_arm_brick == COLOR_RED)
+    {
+      move.TurnLeft(90);
+      move.BackwardUntillWall();
+      move.Straight(10000, 150, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      move.Stop();
+      move.TurnRight(90);
+      move.BackwardUntillWall();
+      arm.SmallerBack();
+      if (bigger_arm_brick == COLOR_RED) arm.BiggerBack();
+      delay(1000);
+      if (bigger_arm_brick == COLOR_RED) grab.BiggerArmOpen();
+      grab.SmallerArmOpen();
+      delay(1000);
+      move.Straight(10000, 100, 1000);
+    }
+    else if (smaller_arm_brick == COLOR_GREEN)
+    {
+      move.TurnLeft(90);
+      move.BackwardUntillWall();
+      move.Straight(10000, 600, 5000);
+      move.Stop();
+      move.TurnRight(90);
+      move.BackwardUntillWall();
+      arm.SmallerBack();
+      if (bigger_arm_brick == COLOR_GREEN) arm.BiggerBack();
+      delay(1000);
+      if (bigger_arm_brick == COLOR_GREEN) grab.BiggerArmOpen();
+      grab.SmallerArmOpen();
+      delay(1000);
+      move.Straight(10000, 100, 1000);
+    }
+    else // blue
+    {
+      move.TurnRight(90);
+      move.BackwardUntillWall();
+      move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      move.Stop();
+      move.TurnLeft(90);
+      move.BackwardUntillWall();
+      arm.SmallerBack();
+      if (bigger_arm_brick == COLOR_BLUE) arm.BiggerBack();
+      delay(1000);
+      if (bigger_arm_brick == COLOR_BLUE) grab.BiggerArmOpen();
+      grab.SmallerArmOpen();
+      delay(1000);
+      move.Straight(10000, 100, 1000);
+    }
+    arm.SmallerUp();
+    arm.BiggerUp();
+    if (bigger_arm_brick != smaller_arm_brick)
+    {
+      if (bigger_arm_brick == COLOR_RED)
+      {
+        move.TurnLeft(90);
+        move.BackwardUntillWall();
+        move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+        move.Stop();
+        move.TurnRight(90);
+        move.BackwardUntillWall();
+        arm.BiggerBack();
+        delay(1000);
+        grab.BiggerArmOpen();
+        delay(1000);
+        move.Straight(10000, 100, 1000);
+      }
+      else if (bigger_arm_brick == COLOR_GREEN)
+      {
+        move.TurnLeft(90);
+        move.BackwardUntillWall();
+        move.Straight(10000, 600, 5000);
+        move.Stop();
+        move.TurnRight(90);
+        move.BackwardUntillWall();
+        arm.BiggerBack();
+        delay(1000);
+        grab.BiggerArmOpen();
+        delay(1000);
+        move.Straight(10000, 100, 1000);
+      }
+      else // blue
+      {
+        move.TurnRight(90);
+        move.BackwardUntillWall();
+        move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+        move.Stop();
+        move.TurnLeft(90);
+        move.BackwardUntillWall();
+        arm.BiggerBack();
+        delay(1000);
+        grab.BiggerArmOpen();
+        delay(1000);
+        move.Straight(10000, 100, 1000);
+      }
+    }
+    arm.BiggerUp();
+}
+
+
+void setup(){
+
+   auto &man = rb::Manager::get(); // get manager instance as singleton
+    man.install();  // install manager, this will initialize the hardware and the
+    
+  Serial.begin(115200);
+  delay(100);
+
+
+  sens.InitRGB(); // Inicializace RGB senzorů
+
+  servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
+  servoBus.set(0, 0_deg); 
+  servoBus.set(1, 0_deg);
+
+
+  WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
+
+  float start_time = millis()/1000; // Ulož čas spuštění v sekundách
+  Serial.printf("Start time: %.2f seconds\n", start_time);
+
+  arm.BiggerUp();
+  arm.SmallerUp();
+
+  Serial.println("Starting robot movement...");
+  
+  GoToField();
+
+  move.TurnLeft(90);
+  move.BackwardUntillWall();
+  for (size_t lap = 0; (lap < 5) && (millis()/1000 - start_time < final_time); lap++)
+  {
+    move.Acceleration(1000, 20000, 200);
+    move.Straight(32000, 800 - lap*200, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+    move.TurnLeft(90); // Otoč robota doprava o 90 stupňů
+    arm.SmallerFront();
+    arm.BiggerFront();
+    move.BackwardUntillWall();
+    move.Straight(32000, 600, 5000);
+    grab.SmallerArmClose();
+    grab.BiggerArmClose();
+    delay(500);
+    Color smaller_arm_brick = sens.GetColorRGB2();
+    Color bigger_arm_brick = sens.GetColorRGB1();
+    move.BackwardUntillWall();
+    move.Straight(10000, 100, 1000);
+    BrickDeliver(smaller_arm_brick, bigger_arm_brick);
+    move.TurnRight(90);
+    move.BackwardUntillWall();
+  }
+
+
+  while (true)
+  {
+    sens.PrintRGBToSerial(); // Vytiskni barvy z RGB senzorů do sériového monitoru
+    delay(1000); // Krátká prodleva pro stabil
+  }
+}
+
+void loop() {
+  VL53L0X_RangingMeasurementData_t m1, m2;
+
+  // Provést měření
+  laser1.rangingTest(&m1, false);
+  laser2.rangingTest(&m2, false);
+
+  //Výpis výsledků
+  Serial.print("Senzor 1 (Wire): ");
+  if (m1.RangeStatus != 4) {
+    Serial.print(m1.RangeMilliMeter);
+    Serial.print(" mm");
+  } else {
+    Serial.print("Mimo rozsah");
+  }
+//delay(100); // Krátká prodleva mezi měřeními
+  Serial.print("  |  Senzor 2 (Wire1): ");
+  if (m2.RangeStatus != 4) {
+    Serial.print(m2.RangeMilliMeter);
+    Serial.println(" mm");
+  } else {
+    Serial.println("Mimo rozsah");
+  }
+  delay(1000);
+}

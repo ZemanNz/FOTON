@@ -4,12 +4,12 @@
 
 struct Movement
 {
-  rb::MotorId motorL = rb::MotorId::M1; // levý motor
-  rb::MotorId motorR = rb::MotorId::M4; // pravý motor
-  double mm_to_ticks = 0.215;           // konstanta pro prepocet tics enkoderu na mm
+  rb::MotorId motorL = rb::MotorId::M4; // levý motor
+  rb::MotorId motorR = rb::MotorId::M1; // pravý motor
+  double mm_to_ticks = 0.098;           // konstanta pro prepocet tics enkoderu na mm
   int wheel_base = 165;                 // vzdalenost mezi koly robota v mm
-  int last_ticks_M3 = 0;                // pravy motor
-  int last_ticks_M2 = 0;                // levy motor
+  int last_ticks_MR = 0;                // pravy motor
+  int last_ticks_ML = 0;                // levy motor
 
   /**
    * Fuknkce pro pohyb robota v oblouku doprava
@@ -27,7 +27,7 @@ struct Movement
     double inner_lenght = (((2 * PI * radius) / 360) * angle) / mm_to_ticks;                  // vzdalenost, kterou musi vnitrni kolo v oblouku ujet v tics enkoderu
     double outer_lenght = (((2 * 3.14 * (radius + wheel_base)) / 360) * angle) / mm_to_ticks; // vzdalenost, kterou musi vnejsi kolo v oblouku ujet v tics enkoderu
     // Serial.println(inner_lenght);
-    int outer_sped = 3200;                                         // rychlost vnejsiho kola
+    int outer_sped = 5200;                                         // rychlost vnejsiho kola
     int inner_speed = -(outer_sped * inner_lenght) / outer_lenght; // vypocet pro rychlost vnitrniho kola
     // Serial.println(inner_speed);
     int tics_M2 = 0;
@@ -35,12 +35,12 @@ struct Movement
     // Serial.println(outer_lenght);
     while ((inner_lenght > tics_M3) && (outer_lenght > tics_M2))
     {
-      man.motor(motorL).speed(-outer_sped);
-      man.motor(motorR).speed(-inner_speed);
+      man.motor(motorL).speed(outer_sped);
+      man.motor(motorR).speed(inner_speed);
       man.motor(motorL).requestInfo([&tics_M2](rb::Motor &info)
-                                    { tics_M2 = info.position(); });
+                                    { tics_M2 = -info.position(); });
       man.motor(motorR).requestInfo([&tics_M3](rb::Motor &info)
-                                    { tics_M3 = info.position(); });
+                                    { tics_M3 = -info.position(); });
       delay(10);
     }
   }
@@ -53,7 +53,7 @@ struct Movement
     double inner_lenght = (((2 * PI * radius) / 360) * angle) / mm_to_ticks;
     double outer_lenght = (((2 * 3.14 * (radius + wheel_base)) / 360) * angle) / mm_to_ticks;
     Serial.println(inner_lenght);
-    int outer_sped = -3200;
+    int outer_sped = -5200;
     int inner_speed = -(outer_sped * inner_lenght) / outer_lenght;
     Serial.println(inner_speed);
     int tics_M2 = 0;
@@ -61,64 +61,65 @@ struct Movement
     Serial.println(outer_lenght);
     while ((inner_lenght > tics_M2) && (outer_lenght > tics_M3))
     {
-      man.motor(motorR).speed(-outer_sped);
-      man.motor(motorL).speed(-inner_speed);
+      man.motor(motorR).speed(outer_sped);
+      man.motor(motorL).speed(inner_speed);
       man.motor(motorR).requestInfo([&tics_M3](rb::Motor &info)
                                     {
             //printf("M3: position:%d\n", info.position());
-            tics_M3 = info.position(); });
+            tics_M3 = -info.position(); });
       man.motor(motorL).requestInfo([&tics_M2](rb::Motor &info)
-                                    { tics_M2 = info.position(); });
+                                    { tics_M2 = -info.position(); });
       delay(10);
     }
   }
 
   void Acceleration(int speed_from, int speed_to, int distance_mm)
   {
+    Serial.println("Acceleration");
     man.motor(motorL).setCurrentPosition(0);
     man.motor(motorR).setCurrentPosition(0);
     double distance_ticks = distance_mm / mm_to_ticks;
     double acc_const = speed_to / distance_ticks;
-    int ticks_M2 = 0;
-    int ticks_M3 = 0;
+    int ticks_ML = 0;
+    int ticks_MR = 0;
     int error = 0;
-    while ((ticks_M2 < distance_ticks) && (ticks_M3 < distance_ticks))
+    while ((ticks_ML < distance_ticks) && (ticks_MR < distance_ticks))
     {
-      error = 10 * (ticks_M2 - ticks_M3);
-      man.motor(motorL).speed(-(acc_const * ticks_M2 + speed_from - error));
-      man.motor(motorR).speed(acc_const * ticks_M3 + speed_from + error);
-      man.motor(motorR).requestInfo([&ticks_M3](rb::Motor &info)
+      error = 10 * (ticks_ML - ticks_MR);
+      man.motor(motorL).speed((acc_const * ticks_ML + speed_from - error));
+      man.motor(motorR).speed(-(acc_const * ticks_MR + speed_from + error));
+      man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
                                     {
             //printf("M3: position:%d\n", info.position());
-            ticks_M3 = info.position(); });
-      man.motor(motorL).requestInfo([&ticks_M2](rb::Motor &info)
+            ticks_MR = -info.position(); });
+      man.motor(motorL).requestInfo([&ticks_ML](rb::Motor &info)
                                     {
             //printf("M2: position:%d\n", info.position());
-            ticks_M2 = -info.position(); });
+            ticks_ML = info.position(); });
 
       delay(10);
     }
   }
 
-  void TurnRight(int angle)
+  void TurnLeft(int angle)
   {
     man.motor(motorL).setCurrentPosition(0);
     man.motor(motorR).setCurrentPosition(0);
-    int ticks_M2 = 0;
-    int ticks_M3 = 0;
+    int ticks_ML = 0;
+    int ticks_MR = 0;
     int distance = ((PI * wheel_base) / 360) * angle / mm_to_ticks;
-    while (distance > ticks_M3)
+    while (distance > ticks_MR)
     {
-      man.motor(motorL).speed(500);
-      man.motor(motorR).speed(500);
-      man.motor(motorR).requestInfo([&ticks_M3](rb::Motor &info)
+      man.motor(motorL).speed(-1500);
+      man.motor(motorR).speed(-1500);
+      man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
                                     {
             //printf("M3: position:%d\n", info.position());
-            ticks_M3 = info.position(); });
-      man.motor(motorL).requestInfo([&ticks_M2](rb::Motor &info)
+            ticks_MR = -info.position(); });
+      man.motor(motorL).requestInfo([&ticks_ML](rb::Motor &info)
                                     {
             //printf("M2: position:%d\n", info.position());
-            ticks_M2 = -info.position(); });
+            ticks_ML = info.position(); });
 
       delay(10);
     }
@@ -126,25 +127,25 @@ struct Movement
     man.motor(motorL).speed(0);
   }
 
-  void TurnLeft(int angle)
+  void TurnRight(int angle)
   {
     man.motor(motorL).setCurrentPosition(0);
     man.motor(motorR).setCurrentPosition(0);
-    int ticks_M2 = 0;
-    int ticks_M3 = 0;
+    int ticks_ML = 0;
+    int ticks_MR = 0;
     int distance = ((PI * wheel_base) / 360) * angle / mm_to_ticks;
-    while (distance > ticks_M3)
+    while (distance > ticks_MR)
     {
-      man.motor(motorL).speed(-500);
-      man.motor(motorR).speed(-500);
-      man.motor(motorR).requestInfo([&ticks_M3](rb::Motor &info)
+      man.motor(motorL).speed(1500);
+      man.motor(motorR).speed(1500);
+      man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
                                     {
             //Serial.println( -info.position());//"M3: position:%d\n",
-            ticks_M3 = -info.position(); });
-      man.motor(motorL).requestInfo([&ticks_M2](rb::Motor &info)
+            ticks_MR = info.position(); });
+      man.motor(motorL).requestInfo([&ticks_ML](rb::Motor &info)
                                     {
             //printf("M2: position:%d\n", info.position());
-            ticks_M2 = info.position(); });
+            ticks_ML = -info.position(); });
 
       delay(10);
     }
@@ -154,35 +155,24 @@ struct Movement
 
   void BackwardUntillWall()
   {
-    const int ultrasound_Id = 0;  // us id
-    const int stop_distance = 50; // vzdálenost v mm, kdy má robot zastavit
-
-    // Funkce pro průměr ze tří měření
-    auto averageDistance = [&]() -> int
-    {
-      int d1 = man.ultrasound(ultrasound_Id).measure();
-      delay(5);
-      int d2 = man.ultrasound(ultrasound_Id).measure();
-      delay(5);
-      int d3 = man.ultrasound(ultrasound_Id).measure();
-      return (d1 + d2 + d3) / 3;
-    };
-
-    int distance = averageDistance();
-    delay(1);
-
-    while (distance > stop_distance) // dokud není překážka blízko
-    {
-      man.motor(motorL).speed(2500);
-      man.motor(motorR).speed(-2500);
-
-      distance = averageDistance();
-      printf("Distance: %4d mm (%3d cm)\n", distance, distance / 10);
+    while (man.buttons().left() == 0 || man.buttons().right() == 0) //left je opravdu leve tlaitko
+    { //(ticks_ML < distance)&& (ticks_MR < distance)
+      if(man.buttons().left() == 1){
+        man.motor(motorL).speed(-3000);
+        man.motor(motorR).speed(1000);
+      }
+      else if(man.buttons().right() == 1){
+        man.motor(motorR).speed(3000);
+        man.motor(motorL).speed(-1000);  
+      }
+      else{
+      man.motor(motorR).speed(2500);
+      man.motor(motorL).speed(-2500);
+      delay(10);
+      }
     }
-    delay(2000);
-
-    man.motor(motorL).speed(0);
-    man.motor(motorR).speed(0);
+  man.motor(motorR).speed(0);
+  man.motor(motorL).speed(0);
   }
 
   /**
@@ -197,18 +187,19 @@ struct Movement
     man.motor(motorL).setCurrentPosition(0);
     man.motor(motorR).setCurrentPosition(0);
     int time = 0;
-    int ticks_M2 = 0;
-    int ticks_M3 = 0;
+    int ticks_ML = 0;
+    int ticks_MR = 0;
     distance = distance / mm_to_ticks;
     Serial.println(distance);
-    while (ticks_M2 < distance && time < timeout)
+    while (ticks_ML < distance && time < timeout)
     {
-      man.motor(motorL).speed(-speed);
-      man.motor(motorR).speed(speed);
-      man.motor(motorR).requestInfo([&ticks_M3](rb::Motor &info)
-                                    { ticks_M3 = info.position(); });
-      man.motor(motorL).requestInfo([&ticks_M2](rb::Motor &info)
-                                    { ticks_M2 = -info.position(); });
+      man.motor(motorL).speed(speed);
+      man.motor(motorR).speed(-speed);
+      man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
+                                    { ticks_MR = -info.position(); });
+      man.motor(motorL).requestInfo([&ticks_ML](rb::Motor &info)
+                                    { ticks_ML = info.position(); });
+      // Serial.printf("ML: %d, MR: %d\n", ticks_ML, ticks_MR);
 
       delay(10);
       time = time + 10;

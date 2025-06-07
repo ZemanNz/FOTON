@@ -289,7 +289,7 @@ void setup(){
   move.BackwardUntillWall(3000);
   move.Acceleration(300, 10000, 250);
   move.ArcRight(90, 190);
-  move.ArcLeft(180, 200);
+  move.ArcLeft(170, 210);
   move.Straight(4000, 10000, 32000);
 
   while (true)

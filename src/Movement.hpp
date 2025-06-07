@@ -45,7 +45,7 @@ struct Movement
     }
   }
 
-  void Arcleft(int angle, int radius)
+  void ArcLeft(int angle, int radius)
   {
     man.motor(motorL).setCurrentPosition(0);
     man.motor(motorR).setCurrentPosition(0);
@@ -153,9 +153,10 @@ struct Movement
     man.motor(motorL).speed(0);
   }
 
-  void BackwardUntillWall()
+  void BackwardUntillWall(unsigned long timeout = 10000)
   {
-    while (man.buttons().left() == 0 || man.buttons().right() == 0) //left je opravdu leve tlaitko
+    int start_timer = millis();
+    while ((man.buttons().left() == 0 || man.buttons().right() == 0) && (millis() - start_timer < timeout)) //left je opravdu leve tlaitko
     { //(ticks_ML < distance)&& (ticks_MR < distance)
       if(man.buttons().left() == 1){
         man.motor(motorL).speed(-3000);

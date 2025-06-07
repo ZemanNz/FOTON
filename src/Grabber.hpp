@@ -12,19 +12,19 @@ struct Grabber
     // nastavy grabber na open pozici
     void SmallerArmClose()
     {
-        servoBus.set(0, 22_deg); 
+        servoBus.set(0, 28_deg); 
     }
     void SmallerArmOpen()
     {
-        servoBus.set(0, 0_deg); 
+        servoBus.set(0, 3_deg); 
     }
     
     void BiggerArmClose()
     {
-        servoBus.set(1, 28_deg); 
+        servoBus.set(1, 34_deg); 
     }
     void BiggerArmOpen()
     {
-        servoBus.set(1, 0_deg); 
+        servoBus.set(1, 12_deg); 
     }
 };

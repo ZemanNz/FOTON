@@ -27,6 +27,13 @@ extern TwoWire Wire1;
 
 int final_time = 220;
 
+byte smaller_red_count = 0;
+byte smaller_green_count = 0;
+byte smaller_blue_count = 0;
+byte bigger_red_count = 0;
+byte bigger_green_count = 0;
+byte bigger_blue_count = 0;
+
 void WaitForStart()
 {
     while (true)
@@ -36,6 +43,18 @@ void WaitForStart()
             break;
         }
         delay(10);
+        if (man.buttons().up() == 1){
+          arm.BiggerUp();
+          arm.SmallerUp();
+          move.BackwardUntillWall(20000);
+          move.Straight(1000, 40, 1000);
+          move.TurnLeft(88);
+          move.BackwardUntillWall(3000);
+          move.Acceleration(300, 10000, 250);
+          move.ArcRight(90, 190);
+          move.ArcLeft(180, 200);
+          move.Straight(4000, 10000, 32000);
+        }
     }
 }
 
@@ -74,9 +93,9 @@ void GoToField(){
   move.ArcRight(170,180);
   Serial.println("go to field2");
   //move.Straight(3200,100,5000);
-  move.Arcleft(150, 150);
+  move.ArcLeft(150, 150);
   Serial.println("go to field3");
-  move.Straight(32000, 1500,4000);
+  move.Straight(32000, 1450,4000);
   Serial.println("go to field4");
   move.Acceleration(32000, 100, 320);
   Serial.println("go to field5");
@@ -89,7 +108,7 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
     {
       move.TurnLeft(90);
       move.BackwardUntillWall();
-      move.Straight(10000, 150, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      move.Straight(2500, 180+smaller_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
       move.Stop();
       move.TurnRight(90);
       move.BackwardUntillWall();
@@ -99,13 +118,15 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       if (bigger_arm_brick == COLOR_RED) grab.BiggerArmOpen();
       grab.SmallerArmOpen();
       delay(1000);
-      move.Straight(10000, 100, 1000);
+
+      move.Straight(2000, 100, 1000);
     }
     else if (smaller_arm_brick == COLOR_GREEN)
     {
       move.TurnLeft(90);
       move.BackwardUntillWall();
-      move.Straight(10000, 600, 5000);
+      move.Acceleration(600, 10000, 200);
+      move.Straight(10000, 360+smaller_green_count*40, 5000);
       move.Stop();
       move.TurnRight(90);
       move.BackwardUntillWall();
@@ -115,13 +136,16 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       if (bigger_arm_brick == COLOR_GREEN) grab.BiggerArmOpen();
       grab.SmallerArmOpen();
       delay(1000);
-      move.Straight(10000, 100, 1000);
+      arm.SmallerUp();
+      arm.BiggerUp();
+      delay(200);
+      move.Straight(2000, 100, 1000);
     }
     else // blue
     {
       move.TurnRight(90);
       move.BackwardUntillWall();
-      move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      move.Straight(2000, 210 +smaller_blue_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
       move.Stop();
       move.TurnLeft(90);
       move.BackwardUntillWall();
@@ -131,17 +155,18 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       if (bigger_arm_brick == COLOR_BLUE) grab.BiggerArmOpen();
       grab.SmallerArmOpen();
       delay(1000);
-      move.Straight(10000, 100, 1000);
+      arm.SmallerUp();
+      arm.BiggerUp();
+      delay(200);
+      move.Straight(2000, 100, 1000);
     }
-    arm.SmallerUp();
-    arm.BiggerUp();
     if (bigger_arm_brick != smaller_arm_brick)
     {
       if (bigger_arm_brick == COLOR_RED)
       {
         move.TurnLeft(90);
         move.BackwardUntillWall();
-        move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+        move.Straight(2000, 180 + bigger_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
         move.Stop();
         move.TurnRight(90);
         move.BackwardUntillWall();
@@ -149,13 +174,16 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
         delay(1000);
         grab.BiggerArmOpen();
         delay(1000);
-        move.Straight(10000, 100, 1000);
+        arm.BiggerUp();
+        delay(200);
+        move.Straight(2000, 100, 1000);
       }
       else if (bigger_arm_brick == COLOR_GREEN)
       {
         move.TurnLeft(90);
         move.BackwardUntillWall();
-        move.Straight(10000, 600, 5000);
+        move.Acceleration(600, 10000, 200);
+        move.Straight(10000, 360 + bigger_green_count*40, 5000);
         move.Stop();
         move.TurnRight(90);
         move.BackwardUntillWall();
@@ -163,13 +191,15 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
         delay(1000);
         grab.BiggerArmOpen();
         delay(1000);
-        move.Straight(10000, 100, 1000);
+        arm.BiggerUp();
+        delay(200);
+        move.Straight(2000, 100, 1000);
       }
       else // blue
       {
         move.TurnRight(90);
         move.BackwardUntillWall();
-        move.Straight(10000, 100, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+        move.Straight(2000, 200 + bigger_blue_count*20, 1000);
         move.Stop();
         move.TurnLeft(90);
         move.BackwardUntillWall();
@@ -177,10 +207,11 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
         delay(1000);
         grab.BiggerArmOpen();
         delay(1000);
-        move.Straight(10000, 100, 1000);
+        arm.BiggerUp();
+        delay(200);
+        move.Straight(2000, 100, 1000);
       }
     }
-    arm.BiggerUp();
 }
 
 
@@ -193,11 +224,14 @@ void setup(){
   delay(100);
 
 
+
+
   sens.InitRGB(); // Inicializace RGB senzorů
 
   servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
-  servoBus.set(0, 0_deg); 
-  servoBus.set(1, 0_deg);
+  
+  grab.BiggerArmOpen();
+  grab.SmallerArmOpen();
 
 
   WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
@@ -214,27 +248,49 @@ void setup(){
 
   move.TurnLeft(90);
   move.BackwardUntillWall();
-  for (size_t lap = 0; (lap < 5) && (millis()/1000 - start_time < final_time); lap++)
+  for (size_t lap = 0; (lap < 6) && (millis()/1000 - start_time < final_time); lap++)
   {
-    move.Acceleration(1000, 20000, 200);
-    move.Straight(32000, 800 - lap*200, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+    move.Acceleration(500, 20000, 210);
+    move.Straight(32000, 800 - lap*150, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+    move.Stop();
     move.TurnLeft(90); // Otoč robota doprava o 90 stupňů
     arm.SmallerFront();
     arm.BiggerFront();
     move.BackwardUntillWall();
-    move.Straight(32000, 600, 5000);
+    move.Straight(5000, 400, 5000);
+    move.Straight(2500, 450, 5000);
+    move.Stop();
     grab.SmallerArmClose();
     grab.BiggerArmClose();
-    delay(500);
+    delay(1000);
+    move.BackwardUntillWall();
+    grab.SmallerArmOpen();
+    grab.BiggerArmOpen();
+    move.Straight(2500, 200, 4000);
+    grab.SmallerArmClose();
+    grab.BiggerArmClose();
+    delay(1000);
     Color smaller_arm_brick = sens.GetColorRGB2();
     Color bigger_arm_brick = sens.GetColorRGB1();
     move.BackwardUntillWall();
-    move.Straight(10000, 100, 1000);
+    move.Straight(2000, 100, 1000);
     BrickDeliver(smaller_arm_brick, bigger_arm_brick);
-    move.TurnRight(90);
+    move.Stop();
+    move.TurnRight(93);
     move.BackwardUntillWall();
   }
-
+  arm.BiggerUp();
+  arm.SmallerUp();
+  move.Straight(1000, 40, 1000);
+  move.TurnRight(88);
+  move.BackwardUntillWall(17000);
+  move.Straight(1000, 140, 1000);
+  move.TurnLeft(88);
+  move.BackwardUntillWall(3000);
+  move.Acceleration(300, 10000, 250);
+  move.ArcRight(90, 190);
+  move.ArcLeft(180, 200);
+  move.Straight(4000, 10000, 32000);
 
   while (true)
   {

@@ -5,7 +5,6 @@
 
 auto &man = rb::Manager::get(); // pro fungovani RBCX
 #include "Grabber.hpp"
-#include "Comunication.hpp"
 #include "Movement.hpp"
 #include "Arm.hpp"
 #include "Sensors.hpp"
@@ -13,13 +12,9 @@ auto &man = rb::Manager::get(); // pro fungovani RBCX
 
 Grabber grab;
 Movement move;
-Communication comm;
 Sensors sens;
 Arm arm;
 
-// Instance senzorů
-Adafruit_VL53L0X laser1; // Přes Wire (21, 22)
-Adafruit_VL53L0X laser2; // Přes Wire1 (26, 14)
 
 // Vytvoření nové sběrnice Wire1
 extern TwoWire Wire1;
@@ -292,35 +287,8 @@ void setup(){
   move.ArcLeft(170, 210);
   move.Straight(4000, 10000, 32000);
 
-  while (true)
-  {
-    sens.PrintRGBToSerial(); // Vytiskni barvy z RGB senzorů do sériového monitoru
-    delay(1000); // Krátká prodleva pro stabil
-  }
 }
 
 void loop() {
-  VL53L0X_RangingMeasurementData_t m1, m2;
 
-  // Provést měření
-  laser1.rangingTest(&m1, false);
-  laser2.rangingTest(&m2, false);
-
-  //Výpis výsledků
-  Serial.print("Senzor 1 (Wire): ");
-  if (m1.RangeStatus != 4) {
-    Serial.print(m1.RangeMilliMeter);
-    Serial.print(" mm");
-  } else {
-    Serial.print("Mimo rozsah");
-  }
-//delay(100); // Krátká prodleva mezi měřeními
-  Serial.print("  |  Senzor 2 (Wire1): ");
-  if (m2.RangeStatus != 4) {
-    Serial.print(m2.RangeMilliMeter);
-    Serial.println(" mm");
-  } else {
-    Serial.println("Mimo rozsah");
-  }
-  delay(1000);
 }

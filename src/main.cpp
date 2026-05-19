@@ -83,12 +83,12 @@ void CheckBattery()
 }
 
 void GoToField(){
-  move.Acceleration(300, 10000, 500);
+  move.Acceleration(900, 10000, 500);
   Serial.println("go to field1");
   move.ArcRight(170,180);
   Serial.println("go to field2");
   //move.Straight(3200,100,5000);
-  move.ArcLeft(150, 150);
+  move.ArcLeft(150, 140);
   Serial.println("go to field3");
   move.Straight(32000, 1450,4000);
   Serial.println("go to field4");

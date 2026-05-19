@@ -49,12 +49,14 @@ struct Sensors{
     void ReadRGB(){
         rgb_front.getRGB(&r_1, &g_1, &b_1);
         rgb_down.getRGB(&r_2, &g_2, &b_2);
+        rgb_front.getRawData(&red_1, &green_1, &blue_1, &clear_1);
+        rgb_down.getRawData(&red_2, &green_2, &blue_2, &clear_2);
     }
 
     void PrintRGBToSerial(){
         ReadRGB();
-        Serial.printf("Front RGB: R: %f, G: %f, B: %f, Clear: %f\n", r_1, g_1, b_1, clear_1);
-        Serial.printf("Down RGB: R: %f, G: %f, B: %f, Clear: %f\n", r_2, g_2, b_2, clear_2);
+        Serial.printf("Front RGB: R: %f, G: %f, B: %f, Clear: %d\n", r_1, g_1, b_1, clear_1);
+        Serial.printf("Down RGB: R: %f, G: %f, B: %f, Clear: %d\n", r_2, g_2, b_2, clear_2);
     }
 
     bool IsBrickRGB1(){

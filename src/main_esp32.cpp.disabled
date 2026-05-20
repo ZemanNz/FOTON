@@ -1,0 +1,63 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include "gyro.hpp"
+
+// Definice pinů pro I2C sběrnici (jediná používaná sběrnice)
+#define I2C_SDA 21
+#define I2C_SCL 22
+
+// Funkce pro skenování I2C adres na sběrnici
+void scanI2CBus(TwoWire &bus, const char* name) {
+    Serial.printf("--- Skenuji I2C sbernici: %s ---\n", name);
+    int count = 0;
+    for (uint8_t address = 1; address < 127; address++) {
+        bus.beginTransmission(address);
+        uint8_t error = bus.endTransmission();
+        if (error == 0) {
+            Serial.printf("  Nalezeno zarizeni na adrese 0x%02X\n", address);
+            count++;
+        } else if (error == 4) {
+            Serial.printf("  Neznama chyba na adrese 0x%02X\n", address);
+        }
+    }
+    if (count == 0) {
+        Serial.println("  Zadna zarizeni nenalezena.");
+    }
+    Serial.println("-------------------------------------");
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+    Serial.println("=== Bare ESP32 Test: MPU6050 na jedne sbernici (Uhlomery) ===");
+
+    // Nastavení pinů pro I2C sběrnici na INPUT_PULLUP
+    pinMode(I2C_SDA, INPUT_PULLUP);
+    pinMode(I2C_SCL, INPUT_PULLUP);
+    delay(50); // Stabilizace pinů
+
+    // Inicializace I2C sběrnice
+    Wire.begin(I2C_SDA, I2C_SCL, 100000);
+
+    // Skenování sběrnice před inicializací čipů
+    scanI2CBus(Wire, "Wire (Piny 21/22)");
+
+    // Inicializace a kalibrace gyroskopu (čte z Wire)
+    Serial.println("Inicializuji gyro.hpp (MPU6050)...");
+    gyroInit();
+
+    Serial.println("=== Inicializace dokoncena. Spoustim hlavni smycku ===");
+}
+
+void loop() {
+    static unsigned long last_print = 0;
+    
+    // Čtení a výpis dat každých 500 ms
+    if (millis() - last_print >= 500) {
+        last_print = millis();
+        Serial.println("\n--- INTEGRALNI UHLY Z GYROSKOPU ---");
+        Serial.printf("MPU6050 Angles [deg]: X: %.2f | Y: %.2f | Z (Heading): %.2f\n",
+                      gyroGetAngleX(), gyroGetAngleY(), gyroGetAngleZ());
+    }
+    delay(10);
+}

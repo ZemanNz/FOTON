@@ -31,10 +31,13 @@ struct Sensors{
         pinMode(RGB_SCL_front_pin, INPUT_PULLUP);
         pinMode(RGB_SDA_down_pin, INPUT_PULLUP);
         pinMode(RGB_SCL_down_pin, INPUT_PULLUP);
+        Wire1.begin(RGB_SDA_front_pin, RGB_SCL_front_pin, 100000); // pro predni senzor 
+        Wire.begin(RGB_SDA_down_pin, RGB_SCL_down_pin, 100000); // pro spodni senzor 
 
         if (!rgb_front.begin(TCS34725_ADDRESS, &Wire1)) {
             Serial.printf("Can not connect to the front RGB sensor");
             delay(500);  // aby se zprava urcite stihla vypsat 
+            abort();
         }
 
         if (!rgb_down.begin(TCS34725_ADDRESS, &Wire)) {

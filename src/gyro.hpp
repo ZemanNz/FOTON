@@ -63,10 +63,13 @@ inline void gyroInit() {
     auto &state = getGyroState();
     if (state.initialized) return;
 
+    // Initialize Wire with SDA=21 and SCL=22
+    Wire.begin(21, 22, 100000);
+
     bool status = false;
-    if (state.mpu.begin(0x68, &Wire1)) {
+    if (state.mpu.begin(0x68, &Wire)) {
         status = true;
-    } else if (state.mpu.begin(0x69, &Wire1)) {
+    } else if (state.mpu.begin(0x69, &Wire)) {
         status = true;
     }
 

@@ -2,23 +2,72 @@
 #include <Wire.h>
 #include <Adafruit_VL53L0X.h>
 #include <RBCX.h>
+#include <stdarg.h>
 
 auto &man = rb::Manager::get(); // pro fungovani RBCX
+
+String logBuffer = "";
+
+void logMsg(const char* format, ...) {
+    char temp[256];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(temp, sizeof(temp), format, args);
+    va_end(args);
+    
+    logBuffer += temp;
+    logBuffer += "\n";
+    Serial.println(temp);
+}
+
+void checkEmergencyStop() {
+    if (man.buttons().down() == 1) {
+        man.motor(rb::MotorId::M1).speed(0);
+        man.motor(rb::MotorId::M2).speed(0);
+        man.motor(rb::MotorId::M3).speed(0);
+        man.motor(rb::MotorId::M4).speed(0);
+        
+        Serial.println("\n--- EMERGENCY STOP - VYPIS ULOZENYCH ZAZNAMU ---");
+        Serial.print(logBuffer);
+        Serial.println("--- KONEC VYPISU ---\n");
+        Serial.println("Robot je zastaven. Resetujte pro novy start.");
+        
+        while(true) {
+            ::delay(100);
+            if (man.buttons().down() == 1) {
+                Serial.println("\n--- VYPIS ULOZENYCH ZAZNAMU (LOG BUFFER) ---");
+                Serial.print(logBuffer);
+                Serial.println("--- KONEC VYPISU ---\n");
+                ::delay(500);
+            }
+        }
+    }
+}
+
+void safeDelay(uint32_t ms) {
+    uint32_t start = millis();
+    while (millis() - start < ms) {
+        checkEmergencyStop();
+        ::delay(10);
+    }
+}
+
 #include "Grabber.hpp"
 #include "Movement.hpp"
 #include "Arm.hpp"
 #include "Sensors.hpp"
 
+// Redirect all delay() calls to safeDelay() so that they also check for emergency stop
+// (defined after includes to avoid conflicting with system and library headers)
+#define delay safeDelay
 
 Grabber grab;
 Movement move;
 Sensors sens;
 Arm arm;
 
-
 // Vytvoření nové sběrnice Wire1
 extern TwoWire Wire1;
-
 
 int final_time = 220;
 
@@ -31,9 +80,10 @@ byte bigger_blue_count = 0;
 
 void checkButtons() {
     if (man.buttons().left() == 1) {
-        sens.ReadRGB();
-        const char* s1_col = (sens.r_1 > sens.g_1 && sens.r_1 > sens.b_1) ? "Cervena" : ((sens.g_1 > sens.r_1 && sens.g_1 > sens.b_1) ? "Zelena" : "Modra");
-        const char* s2_col = (sens.r_2 > sens.g_2 && sens.r_2 > sens.b_2) ? "Cervena" : ((sens.g_2 > sens.r_2 && sens.g_2 > sens.b_2) ? "Zelena" : "Modra");
+        Color col1 = sens.GetColorRGB1();
+        Color col2 = sens.GetColorRGB2();
+        const char* s1_col = (col1 == COLOR_RED) ? "Cervena" : ((col1 == COLOR_GREEN) ? "Zelena" : "Modra");
+        const char* s2_col = (col2 == COLOR_RED) ? "Cervena" : ((col2 == COLOR_GREEN) ? "Zelena" : "Modra");
         Serial.printf("LEFT: S1 (Front) -> R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s) | S2 (Down) -> R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s)\n",
             sens.r_1, sens.g_1, sens.b_1, sens.clear_1, s1_col,
             sens.r_2, sens.g_2, sens.b_2, sens.clear_2, s2_col);
@@ -42,67 +92,80 @@ void checkButtons() {
 
     if (man.buttons().right() == 1) {
         sens.ReadRGB();
-        Serial.printf("RIGHT: Merim barvy... S1 Clear: %d, S2 Clear: %d\n", sens.clear_1, sens.clear_2);
+        logMsg("RIGHT: Merim barvy... S1 Clear: %d, S2 Clear: %d", sens.clear_1, sens.clear_2);
         
         bool found_s1 = (sens.clear_1 < 1000);
         bool found_s2 = (sens.clear_2 < 1000);
         
         if (found_s1) {
             const char* col_name = (sens.GetColorRGB1() == COLOR_RED) ? "Cervena" : ((sens.GetColorRGB1() == COLOR_GREEN) ? "Zelena" : "Modra");
-            Serial.printf("Predni senzor (S1) detekoval barvu: %s (Clear: %d v toleranci)\n", col_name, sens.clear_1);
+            logMsg("Predni senzor (S1) detekoval barvu: %s (Clear: %d v toleranci)", col_name, sens.clear_1);
             
-            Serial.println("Zaviram velke klepeto...");
+            logMsg("Zaviram velke klepeto...");
             grab.BiggerArmClose();
             delay(1000);
             
-            Serial.println("Hazim kostku za sebe...");
+            logMsg("Hazim kostku za sebe...");
             arm.BiggerBack();
             delay(1000);
             
-            Serial.println("Oteviram velke klepeto vzadu...");
+            logMsg("Oteviram velke klepeto vzadu...");
             grab.BiggerArmOpen();
             delay(1000);
             
-            Serial.println("Vracim velke klepeto nahoru...");
+            logMsg("Vracim velke klepeto nahoru...");
             arm.BiggerUp();
             delay(1000);
         }
         
         if (found_s2) {
             const char* col_name = (sens.GetColorRGB2() == COLOR_RED) ? "Cervena" : ((sens.GetColorRGB2() == COLOR_GREEN) ? "Zelena" : "Modra");
-            Serial.printf("Spodni senzor (S2) detekoval barvu: %s (Clear: %d v toleranci)\n", col_name, sens.clear_2);
+            logMsg("Spodni senzor (S2) detekoval barvu: %s (Clear: %d v toleranci)", col_name, sens.clear_2);
             
-            Serial.println("Zaviram male klepeto...");
+            logMsg("Zaviram male klepeto...");
             grab.SmallerArmClose();
             delay(1000);
             
-            Serial.println("Hazim kostku za sebe...");
+            logMsg("Hazim kostku za sebe...");
             arm.SmallerBack();
             delay(1000);
             
-            Serial.println("Oteviram male klepeto vzadu...");
+            logMsg("Oteviram male klepeto vzadu...");
             grab.SmallerArmOpen();
             delay(1000);
             
-            Serial.println("Vracim male klepeto nahoru...");
+            logMsg("Vracim male klepeto nahoru...");
             arm.SmallerUp();
             delay(1000);
         }
         
         if (!found_s1 && !found_s2) {
-            Serial.println("Zadna kostka v toleranci (clear < 1000) nebyla nalezena.");
+            logMsg("Zadna kostka v toleranci (clear < 1000) nebyla nalezena.");
         }
         
         delay(200);
+    }
+
+    if (man.buttons().down() == 1) {
+        if (logBuffer.length() > 0) {
+            Serial.println("\n--- VYPIS ULOZENYCH ZAZNAMU (LOG BUFFER) ---");
+            Serial.print(logBuffer);
+            Serial.println("--- KONEC VYPISU ---\n");
+        } else {
+            Serial.println("\n--- LOG BUFFER JE PRAZDNY ---\n");
+        }
+        delay(500);
     }
 }
 
 void WaitForStart()
 {
+    uint32_t last_print = 0;
     while (true)
     {
         if (man.buttons().on() == 1)
         {
+            logBuffer = ""; // Reset log buffer for the new run
             break;
         }
         delay(10);
@@ -118,7 +181,43 @@ void WaitForStart()
           move.ArcLeft(180, 200);
           move.Straight(4000, 10000, 32000);
         }
-        checkButtons();
+        
+        // Pravé tlačítko: otestování klepeta na dlouhém rameni (Bigger arm)
+        if (man.buttons().right() == 1) {
+            grab.BiggerArmClose();
+            delay(1000);
+            grab.BiggerArmOpen();
+            delay(200);
+        }
+        
+        // Levé tlačítko: otestování klepeta na kratším rameni (Smaller arm)
+        if (man.buttons().left() == 1) {
+            grab.SmallerArmClose();
+            delay(1000);
+            grab.SmallerArmOpen();
+            delay(200);
+        }
+        
+        // Spodní tlačítko (DOWN): výpis uloženého log bufferu
+        if (man.buttons().down() == 1) {
+            if (logBuffer.length() > 0) {
+                Serial.println("\n--- VYPIS ULOZENYCH ZAZNAMU (LOG BUFFER) ---");
+                Serial.print(logBuffer);
+                Serial.println("--- KONEC VYPISU ---\n");
+            } else {
+                Serial.println("\n--- LOG BUFFER JE PRAZDNY ---\n");
+            }
+            delay(500);
+        }
+        
+        // Vypisování hodnoty z předního RGB senzoru (S1 na rameni) každých 300 ms po startu desky
+        if (millis() - last_print >= 300) {
+            Color col1 = sens.GetColorRGB1();
+            const char* s1_col = (col1 == COLOR_RED) ? "Cervena" : ((col1 == COLOR_GREEN) ? "Zelena" : "Modra");
+            Serial.printf("FRONT S1: R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s)\n",
+                sens.r_1, sens.g_1, sens.b_1, sens.clear_1, s1_col);
+            last_print = millis();
+        }
     }
 }
 
@@ -153,16 +252,16 @@ void CheckBattery()
 
 void GoToField(){
   move.Acceleration(900, 10000, 500);
-  Serial.println("go to field1");
+  logMsg("go to field1");
   move.ArcRight(170,180);
-  Serial.println("go to field2");
+  logMsg("go to field2");
   //move.Straight(3200,100,5000);
   move.ArcLeft(150, 140);
-  Serial.println("go to field3");
+  logMsg("go to field3");
   move.Straight(32000, 1450,4000);
-  Serial.println("go to field4");
+  logMsg("go to field4");
   move.Acceleration(32000, 100, 320);
-  Serial.println("go to field5");
+  logMsg("go to field5");
   move.Stop();
 }
 
@@ -170,33 +269,37 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
 {
     if (smaller_arm_brick == COLOR_RED)
     {
-      Serial.println("Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.");
+      logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.");
       move.TurnLeft(90);
       move.BackwardUntillWall();
       move.Straight(2500, 180+smaller_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
       move.Stop();
       move.TurnRight(90);
       move.BackwardUntillWall();
-      Serial.println("Přesouvám malé rameno dozadu (červená).");
+      logMsg("Přesouvám malé rameno dozadu (červená).");
       arm.SmallerBack();
       if (bigger_arm_brick == COLOR_RED) {
-        Serial.println("Přesouvám také velké rameno dozadu (červená).");
+        logMsg("Přesouvám také velké rameno dozadu (červená).");
         arm.BiggerBack();
       }
       delay(1000);
       if (bigger_arm_brick == COLOR_RED) {
-        Serial.println("Otevírám velké klepeto (červená).");
+        logMsg("Otevírám velké klepeto (červená).");
         grab.BiggerArmOpen();
       }
-      Serial.println("Otevírám malé klepeto (červená).");
+      logMsg("Otevírám malé klepeto (červená).");
       grab.SmallerArmOpen();
       delay(1000);
+      logMsg("Vracím obě ramena nahoru.");
+      arm.SmallerUp();
+      arm.BiggerUp();
+      delay(200);
 
       move.Straight(2000, 100, 1000);
     }
     else if (smaller_arm_brick == COLOR_GREEN)
     {
-      Serial.println("Doručuji kostky: Jedu na ZELENOU pozici pro malé klepeto.");
+      logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro malé klepeto.");
       move.TurnLeft(90);
       move.BackwardUntillWall();
       move.Acceleration(600, 10000, 200);
@@ -204,21 +307,21 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       move.Stop();
       move.TurnRight(90);
       move.BackwardUntillWall();
-      Serial.println("Přesouvám malé rameno dozadu (zelená).");
+      logMsg("Přesouvám malé rameno dozadu (zelená).");
       arm.SmallerBack();
       if (bigger_arm_brick == COLOR_GREEN) {
-        Serial.println("Přesouvám také velké rameno dozadu (zelená).");
+        logMsg("Přesouvám také velké rameno dozadu (zelená).");
         arm.BiggerBack();
       }
       delay(1000);
       if (bigger_arm_brick == COLOR_GREEN) {
-        Serial.println("Otevírám velké klepeto (zelená).");
+        logMsg("Otevírám velké klepeto (zelená).");
         grab.BiggerArmOpen();
       }
-      Serial.println("Otevírám malé klepeto (zelená).");
+      logMsg("Otevírám malé klepeto (zelená).");
       grab.SmallerArmOpen();
       delay(1000);
-      Serial.println("Vracím obě ramena nahoru.");
+      logMsg("Vracím obě ramena nahoru.");
       arm.SmallerUp();
       arm.BiggerUp();
       delay(200);
@@ -226,28 +329,28 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
     }
     else // blue
     {
-      Serial.println("Doručuji kostky: Jedu na MODROU pozici pro malé klepeto.");
+      logMsg("Doručuji kostky: Jedu na MODROU pozici pro malé klepeto.");
       move.TurnRight(90);
       move.BackwardUntillWall();
       move.Straight(2000, 210 +smaller_blue_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
       move.Stop();
       move.TurnLeft(90);
       move.BackwardUntillWall();
-      Serial.println("Přesouvám malé rameno dozadu (modrá).");
+      logMsg("Přesouvám malé rameno dozadu (modrá).");
       arm.SmallerBack();
       if (bigger_arm_brick == COLOR_BLUE) {
-        Serial.println("Přesouvám také velké rameno dozadu (modrá).");
+        logMsg("Přesouvám také velké rameno dozadu (modrá).");
         arm.BiggerBack();
       }
       delay(1000);
       if (bigger_arm_brick == COLOR_BLUE) {
-        Serial.println("Otevírám velké klepeto (modrá).");
+        logMsg("Otevírám velké klepeto (modrá).");
         grab.BiggerArmOpen();
       }
-      Serial.println("Otevírám malé klepeto (modrá).");
+      logMsg("Otevírám malé klepeto (modrá).");
       grab.SmallerArmOpen();
       delay(1000);
-      Serial.println("Vracím obě ramena nahoru.");
+      logMsg("Vracím obě ramena nahoru.");
       arm.SmallerUp();
       arm.BiggerUp();
       delay(200);
@@ -257,27 +360,27 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
     {
       if (bigger_arm_brick == COLOR_RED)
       {
-        Serial.println("Doručuji kostky: Jedu na ČERVENOU pozici pro velké klepeto.");
+        logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro velké klepeto.");
         move.TurnLeft(90);
         move.BackwardUntillWall();
         move.Straight(2000, 180 + bigger_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
         move.Stop();
         move.TurnRight(90);
         move.BackwardUntillWall();
-        Serial.println("Přesouvám velké rameno dozadu (červená).");
+        logMsg("Přesouvám velké rameno dozadu (červená).");
         arm.BiggerBack();
         delay(1000);
-        Serial.println("Otevírám velké klepeto (červená).");
+        logMsg("Otevírám velké klepeto (červená).");
         grab.BiggerArmOpen();
         delay(1000);
-        Serial.println("Vracím velké rameno nahoru.");
+        logMsg("Vracím velké rameno nahoru.");
         arm.BiggerUp();
         delay(200);
         move.Straight(2000, 100, 1000);
       }
       else if (bigger_arm_brick == COLOR_GREEN)
       {
-        Serial.println("Doručuji kostky: Jedu na ZELENOU pozici pro velké klepeto.");
+        logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro velké klepeto.");
         move.TurnLeft(90);
         move.BackwardUntillWall();
         move.Acceleration(600, 10000, 200);
@@ -285,33 +388,33 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
         move.Stop();
         move.TurnRight(90);
         move.BackwardUntillWall();
-        Serial.println("Přesouvám velké rameno dozadu (zelená).");
+        logMsg("Přesouvám velké rameno dozadu (zelená).");
         arm.BiggerBack();
         delay(1000);
-        Serial.println("Otevírám velké klepeto (zelená).");
+        logMsg("Otevírám velké klepeto (zelená).");
         grab.BiggerArmOpen();
         delay(1000);
-        Serial.println("Vracím velké rameno nahoru.");
+        logMsg("Vracím velké rameno nahoru.");
         arm.BiggerUp();
         delay(200);
         move.Straight(2000, 100, 1000);
       }
       else // blue
       {
-        Serial.println("Doručuji kostky: Jedu na MODROU pozici pro velké klepeto.");
+        logMsg("Doručuji kostky: Jedu na MODROU pozici pro velké klepeto.");
         move.TurnRight(90);
         move.BackwardUntillWall();
         move.Straight(2000, 200 + bigger_blue_count*20, 1000);
         move.Stop();
         move.TurnLeft(90);
         move.BackwardUntillWall();
-        Serial.println("Přesouvám velké rameno dozadu (modrá).");
+        logMsg("Přesouvám velké rameno dozadu (modrá).");
         arm.BiggerBack();
         delay(1000);
-        Serial.println("Otevírám velké klepeto (modrá).");
+        logMsg("Otevírám velké klepeto (modrá).");
         grab.BiggerArmOpen();
         delay(1000);
-        Serial.println("Vracím velké rameno nahoru.");
+        logMsg("Vracím velké rameno nahoru.");
         arm.BiggerUp();
         delay(200);
         move.Straight(2000, 100, 1000);
@@ -342,50 +445,50 @@ void setup(){
   WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
 
   float start_time = millis()/1000; // Ulož čas spuštění v sekundách
-  Serial.printf("Start time: %.2f seconds\n", start_time);
+  logMsg("Start time: %.2f seconds", start_time);
 
-  Serial.println("Robot odstartoval. Inicializuji polohu ramen.");
+  logMsg("Robot odstartoval. Inicializuji polohu ramen.");
   arm.BiggerUp();
   arm.SmallerUp();
 
-  Serial.println("Jedu na pole (GoToField)...");
+  logMsg("Jedu na pole (GoToField)...");
   GoToField();
 
-  Serial.println("Otačení a couvání k zadní stěně...");
+  logMsg("Otačení a couvání k zadní stěně...");
   move.TurnLeft(90);
   move.BackwardUntillWall();
   for (size_t lap = 0; (lap < 6) && (millis()/1000 - start_time < final_time); lap++)
   {
-    Serial.printf("\n--- Start kola %d ---\n", lap + 1);
-    Serial.println("Jedu dopředu pro vyhledání kostek...");
+    logMsg("\n--- Start kola %d ---", lap + 1);
+    logMsg("Jedu dopředu pro vyhledání kostek...");
     move.Acceleration(500, 20000, 210);
     move.Straight(32000, 800 - lap*150, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
     move.Stop();
     
-    Serial.println("Otáčím se k nakládací rampě/stěně.");
+    logMsg("Otáčím se k nakládací rampě/stěně.");
     move.TurnLeft(90); // Otoč robota doprava o 90 stupňů
     
-    Serial.println("Sklápím obě ramena dopředu.");
+    logMsg("Sklápím obě ramena dopředu.");
     arm.SmallerFront();
     arm.BiggerFront();
     
-    Serial.println("Najíždím ke kostkám a zastavuji před nimi.");
+    logMsg("Najíždím ke kostkám a zastavuji před nimi.");
     move.BackwardUntillWall();
     move.Straight(5000, 400, 5000);
     move.Straight(2500, 450, 5000);
     move.Stop();
     
-    Serial.println("Zavírám malé i velké klepeto pro první uchopení.");
+    logMsg("Zavírám malé i velké klepeto pro první uchopení.");
     grab.SmallerArmClose();
     grab.BiggerArmClose();
     delay(1000);
     
-    Serial.println("Couvám ke stěně a otevírám klepeta.");
+    logMsg("Couvám ke stěně a otevírám klepeta.");
     move.BackwardUntillWall();
     grab.SmallerArmOpen();
     grab.BiggerArmOpen();
     
-    Serial.println("Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.");
+    logMsg("Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.");
     move.Straight(2500, 200, 4000);
     grab.SmallerArmClose();
     grab.BiggerArmClose();
@@ -395,8 +498,8 @@ void setup(){
     Color bigger_arm_brick = sens.GetColorRGB1();
     const char* s_color = (smaller_arm_brick == COLOR_RED) ? "červená" : ((smaller_arm_brick == COLOR_GREEN) ? "zelená" : "modrá");
     const char* b_color = (bigger_arm_brick == COLOR_RED) ? "červená" : ((bigger_arm_brick == COLOR_GREEN) ? "zelená" : "modrá");
-    Serial.printf("V malém klepetu jsem chytil %s barvu.\n", s_color);
-    Serial.printf("V dlouhém (velkém) klepetu jsem chytil %s barvu.\n", b_color);
+    logMsg("V malém klepetu jsem chytil %s barvu.", s_color);
+    logMsg("V dlouhém (velkém) klepetu jsem chytil %s barvu.", b_color);
     
     move.BackwardUntillWall();
     move.Straight(2000, 100, 1000);
@@ -405,7 +508,7 @@ void setup(){
     move.TurnRight(93);
     move.BackwardUntillWall();
   }
-  Serial.println("Konec hlavní smyčky. Zvedám ramena a jedu domů.");
+  logMsg("Konec hlavní smyčky. Zvedám ramena a jedu domů.");
   arm.BiggerUp();
   arm.SmallerUp();
   move.Straight(1000, 40, 1000);
@@ -418,7 +521,7 @@ void setup(){
   move.ArcRight(90, 190);
   move.ArcLeft(170, 210);
   move.Straight(4000, 10000, 32000);
-  Serial.println("Robot se vrátil domů. Konec programu.");
+  logMsg("Robot se vrátil domů. Konec programu.");
 
 }
 

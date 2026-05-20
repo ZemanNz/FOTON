@@ -1,0 +1,74 @@
+#include <Arduino.h>
+#include "RBCX.h"
+#include "SmartServoBus.hpp"
+
+using namespace lx16a;
+
+auto &man = rb::Manager::get(); // pro fungování tlačítek RBCX
+static SmartServoBus servoBus;
+
+void setup() {
+    Serial.begin(115200);
+    delay(500);
+
+    man.install(); // Inicializace manageru a hardwaru RBCX desky
+
+    // Inicializace sběrnice pro 2 serva (FOTON používá ID 0 a ID 1)
+    // Piny z FOTON robota: UART1 na GPIO 27
+    servoBus.begin(2, UART_NUM_1, GPIO_NUM_27);
+
+    Serial.println("\n==============================================");
+    Serial.println("  TEST KLEPET A CTENI ID CHYTRYCH SERV (FOTON) ");
+    Serial.println("==============================================");
+    Serial.println("Ovladani tlacitky na desce:");
+    Serial.println(" - LEFT (Levé):  Zavrit a za 1s otevrit male klepeto (ID 0)");
+    Serial.println(" - RIGHT (Pravé): Zavrit a za 1s otevrit velke klepeto (ID 1)");
+    Serial.println("==============================================");
+}
+
+void loop() {
+    static uint32_t last_print = 0;
+    
+    // Čtení a výpis aktuálního stavu každou sekundu
+    if (millis() - last_print >= 1000) {
+        uint8_t broadcastId = servoBus.getId();
+        Angle pos0 = servoBus.pos(0);
+        Angle pos1 = servoBus.pos(1);
+        int batteryMv = man.battery().voltageMv();
+        
+        Serial.printf("Bat: %.2fV | Broadcast ID (pro 1 zapojene): %d", (float)batteryMv / 1000.f, broadcastId);
+        
+        Serial.print(" | Servo 0 (male): ");
+        if (pos0.isNaN()) Serial.print("OFFLINE");
+        else Serial.printf("%.1f deg", pos0.deg());
+
+        Serial.print(" | Servo 1 (velke): ");
+        if (pos1.isNaN()) Serial.print("OFFLINE");
+        else Serial.printf("%.1f deg", pos1.deg());
+        
+        Serial.println();
+        last_print = millis();
+    }
+
+    // Levé tlačítko: Otestování malého klepeta (ID 0)
+    if (man.buttons().left() == 1) {
+        Serial.println("LEFT stisknuto -> Zaviram male klepeto (ID 0)...");
+        servoBus.set(0, 28_deg);
+        delay(1000);
+        Serial.println("Oteviram male klepeto (ID 0)...");
+        servoBus.set(0, 3_deg);
+        delay(500);
+    }
+
+    // Pravé tlačítko: Otestování velkého klepeta (ID 1)
+    if (man.buttons().right() == 1) {
+        Serial.println("RIGHT stisknuto -> Zaviram velke klepeto (ID 1)...");
+        servoBus.set(1, 34_deg);
+        delay(1000);
+        Serial.println("Oteviram velke klepeto (ID 1)...");
+        servoBus.set(1, 12_deg);
+        delay(500);
+    }
+
+    delay(10);
+}

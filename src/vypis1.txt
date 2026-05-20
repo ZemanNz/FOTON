@@ -1,0 +1,119 @@
+--- VYPIS ULOZENYCH ZAZNAMU (LOG BUFFER) ---
+Start time: 8.00 seconds
+Robot odstartoval. Inicializuji polohu ramen.
+Jedu na pole (GoToField)...
+go to field1
+go to field2
+go to field3
+go to field4
+go to field5
+Otačen�� a couvání k zadní stěně...
+
+--- Start kola 1 ---
+Jedu dopředu pro vyhledání kostek...
+Otáčím se k nakládací rampě/stěně.
+Sklápím obě ramena dopředu.
+Najíždím ke kostkám a zastavuji před nimi.
+Zavírám malé i velk�� klepeto pro první uchopení.
+Couvám ke st��ně a otevírám klepeta.
+Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.
+V malém klepetu jsem chytil červená barvu.
+V dlouhém (velk��m) klepetu jsem chytil zelená barvu.
+Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.
+P��esouvám malé rameno dozadu (červená).
+Otevírám mal�� klepeto (červená).
+Doručuji kostky: Jedu na ZELENOU pozici pro velké klepeto.
+Přesouv��m velké rameno dozadu (zelená).
+Otevírám velké klepeto (zelen��).
+Vracím velké rameno nahoru.
+
+--- Start kola 2 ---
+Jedu dopředu pro vyhled��ní kostek...
+Otáčím se k nakládací rampě/stěně.
+Sklápím obě ramena dopředu.
+Najíždím ke kostkám a zastavuji před nimi.
+Zavírám malé i velk�� klepeto pro první uchopení.
+Couvám ke st��ně a otev��rám klepeta.
+Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.
+V malém klepetu jsem chytil zelená barvu.
+V dlouhém (velkém) klepetu jsem chytil zelená barvu.
+Doručuji kostky: Jedu na ZELENOU pozici pro malé klepeto.
+Přesouvám malé rameno dozadu (zelená).
+Přesouvám také velké rameno dozadu (zelená).
+Otevírám velké klepeto (zelená).
+Otevírám mal�� klepeto (zelená).
+Vracím obě ramena nahoru.
+
+--- Start kola 3 ---
+Jedu dopředu pro vyhledání kostek...
+Otáčím se k nakládací rampě/stěně.
+Skláp��m obě ramena dopředu.
+Najíždím ke kostk��m a zastavuji před nimi.
+Zavírám malé i velké klepeto pro prvn�� uchopení.
+Couvám ke stěně a otevírám klepeta.
+Naj��ždím kousek dopředu a definitivně zavír��m klepeta pro uchopen�� kostek.
+V malém klepetu jsem chytil zelená barvu.
+V dlouhém (velkém) klepetu jsem chytil zelená barvu.
+Doru��uji kostky: Jedu na ZELENOU pozici pro malé klepeto.
+Přesouvám malé rameno dozadu (zelená).
+Přesouvám také velké rameno dozadu (zelená).
+Otevírám velké klepeto (zelená).
+Otevírám malé klepeto (zelená).
+Vracím obě ramena nahoru.
+
+--- Start kola 4 ---
+Jedu dopředu pro vyhledání kostek...
+Otáčím se k nakládací rampě/stěně.
+Sklápím obě ramena dop��edu.
+Nají��dím ke kostkám a zastavuji před nimi.
+Zavírám malé i velké klepeto pro první uchopení.
+Couvám ke stěně a otevírám klepeta.
+Najíždím kousek dop��edu a definitivně zavírám klepeta pro uchopení kostek.
+V malém klepetu jsem chytil červená barvu.
+V dlouhém (velkém) klepetu jsem chytil zelená barvu.
+Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.
+Přesouvám malé rameno dozadu (červen��).
+Otevír��m malé klepeto (červená).
+Doručuji kostky: Jedu na ZELENOU pozici pro velk�� klepeto.
+Přesouvám velké rameno dozadu (zelená).
+Otevírám velké klepeto (zelená).
+Vracím velké rameno nahoru.
+
+--- Start kola 5 ---
+Jedu dopředu pro vyhledání kostek...
+Otáčím se k nakládací rampě/stěně.
+Skl��pím obě ramena dopředu.
+Nají��dím ke kostkám a zastavuji před nimi.
+Zav��rám malé i velké klepeto pro první uchopení.
+Couvám ke stěně a otevírám klepeta.
+Najíždím kousek dopředu a definitivně zav��rám klepeta pro uchopení kostek.
+V malém klepetu jsem chytil červená barvu.
+V dlouhém (velkém) klepetu jsem chytil zelená barvu.
+Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.
+Přesouvám malé rameno dozadu (červená).
+Otevírám malé klepeto (červená).
+Doru��uji kostky: Jedu na ZELENOU pozici pro velké klepeto.
+Přesouvám velké rameno dozadu (zelená).
+Otevírám velké klepeto (zelená).
+Vracím velké rameno nahoru.
+
+--- Start kola 6 ---
+Jedu dopředu pro vyhledání kostek...
+Otáčím se k nakládací rampě/stěně.
+Skl��pím obě ramena dopředu.
+Najíždím ke kostkám a zastavuji před nimi.
+Zavírám malé i velké klepeto pro první uchopení.
+Couvám ke stěně a otevírám klepeta.
+Najíždím kousek dopředu a definitivně zav��rám klepeta pro uchopení kostek.
+V malém klepetu jsem chytil modrá barvu.
+V dlouhém (velkém) klepetu jsem chytil modrá barvu.
+Doručuji kostky: Jedu na MODROU pozici pro malé klepeto.
+Přesouvám malé rameno dozadu (modrá).
+Přesouvám také velké rameno dozadu (modrá).
+Otevírám velk�� klepeto (modrá).
+Otevírám malé klepeto (modrá).
+Vracím obě ramena nahoru.
+Konec hlavní smyčky. Zvedám ramena a jedu domů.
+--- KONEC VYPISU ---
+
+---- Closed the serial port /dev/ttyACM0 ----

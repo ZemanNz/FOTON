@@ -2,6 +2,9 @@
 #include "RBCX.h"
 #include <Arduino.h>
 
+// Forward declaration of emergency stop function defined in main.cpp
+void checkEmergencyStop();
+
 struct Movement
 {
   rb::MotorId motorL = rb::MotorId::M4; // levý motor
@@ -35,6 +38,7 @@ struct Movement
     // Serial.println(outer_lenght);
     while ((inner_lenght > tics_M3) && (outer_lenght > tics_M2))
     {
+      checkEmergencyStop();
       man.motor(motorL).speed(outer_sped);
       man.motor(motorR).speed(inner_speed);
       man.motor(motorL).requestInfo([&tics_M2](rb::Motor &info)
@@ -61,6 +65,7 @@ struct Movement
     Serial.println(outer_lenght);
     while ((inner_lenght > tics_M2) && (outer_lenght > tics_M3))
     {
+      checkEmergencyStop();
       man.motor(motorR).speed(outer_sped);
       man.motor(motorL).speed(inner_speed);
       man.motor(motorR).requestInfo([&tics_M3](rb::Motor &info)
@@ -85,6 +90,7 @@ struct Movement
     int error = 0;
     while ((ticks_ML < distance_ticks) && (ticks_MR < distance_ticks))
     {
+      checkEmergencyStop();
       error = 10 * (ticks_ML - ticks_MR);
       man.motor(motorL).speed((acc_const * ticks_ML + speed_from - error));
       man.motor(motorR).speed(-(acc_const * ticks_MR + speed_from + error));
@@ -110,6 +116,7 @@ struct Movement
     int distance = ((PI * wheel_base) / 360) * angle / mm_to_ticks;
     while (distance > ticks_MR)
     {
+      checkEmergencyStop();
       man.motor(motorL).speed(-1500);
       man.motor(motorR).speed(-1500);
       man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
@@ -136,6 +143,7 @@ struct Movement
     int distance = ((PI * wheel_base) / 360) * angle / mm_to_ticks;
     while (distance > ticks_MR)
     {
+      checkEmergencyStop();
       man.motor(motorL).speed(1500);
       man.motor(motorR).speed(1500);
       man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
@@ -158,6 +166,7 @@ struct Movement
     int start_timer = millis();
     while ((man.buttons().left() == 0 || man.buttons().right() == 0) && (millis() - start_timer < timeout)) //left je opravdu leve tlaitko
     { //(ticks_ML < distance)&& (ticks_MR < distance)
+      checkEmergencyStop();
       if(man.buttons().left() == 1){
         man.motor(motorL).speed(-3000);
         man.motor(motorR).speed(1000);
@@ -169,8 +178,8 @@ struct Movement
       else{
       man.motor(motorR).speed(2500);
       man.motor(motorL).speed(-2500);
-      delay(10);
       }
+      delay(10);
     }
   man.motor(motorR).speed(0);
   man.motor(motorL).speed(0);
@@ -194,6 +203,7 @@ struct Movement
     Serial.println(distance);
     while (ticks_ML < distance && time < timeout)
     {
+      checkEmergencyStop();
       man.motor(motorL).speed(speed);
       man.motor(motorR).speed(-speed);
       man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)

@@ -86,12 +86,10 @@ struct Sensors{
 
         if (r_1 > g_1 && r_1 > b_1) {
             return COLOR_RED;
-        } else if (g_1 > r_1 && g_1 > b_1) {
-            return COLOR_GREEN;
-        } else if (b_1 > r_1 && b_1 > g_1) {
+        } else if (b_1 > g_1 * 0.80f) {
             return COLOR_BLUE;
         } else {
-            return COLOR_RED; // Default case
+            return COLOR_GREEN;
         }
     }
 
@@ -100,12 +98,10 @@ struct Sensors{
 
         if (r_2 > g_2 && r_2 > b_2) {
             return COLOR_RED;
-        } else if (g_2 > r_2 && g_2 > b_2) {
-            return COLOR_GREEN;
-        } else if (b_2 > r_2 && b_2 > g_2) {
+        } else if (b_2 > g_2 * 0.80f) {
             return COLOR_BLUE;
         } else {
-            return COLOR_RED; // Default case
+            return COLOR_GREEN;
         }
     }
 };

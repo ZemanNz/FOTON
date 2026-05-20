@@ -5,6 +5,11 @@
 // Forward declaration of emergency stop function defined in main.cpp
 void checkEmergencyStop();
 
+// Externí deklarace pro gyroskop z main.cpp
+extern volatile float gyro_angle_z;
+extern void updateGyroUart();
+extern void resetGyroZ();
+
 struct Movement
 {
   rb::MotorId motorL = rb::MotorId::M4; // levý motor
@@ -109,26 +114,27 @@ struct Movement
 
   void TurnLeft(int angle)
   {
-    man.motor(motorL).setCurrentPosition(0);
-    man.motor(motorR).setCurrentPosition(0);
-    int ticks_ML = 0;
-    int ticks_MR = 0;
-    int distance = ((PI * wheel_base) / 360) * angle / mm_to_ticks;
-    while (distance > ticks_MR)
+    // Resetujeme gyroskop na ESP32
+    resetGyroZ();
+    
+    // Hned po resetu aktivně vyčítáme data z UARTu po dobu 150 ms, aby se projevilo vynulování
+    uint32_t start_wait = millis();
+    while (millis() - start_wait < 150)
+    {
+      updateGyroUart();
+      ::delay(5);
+    }
+
+    // Otáčíme se doleva, úhel roste do kladných hodnot
+    while (gyro_angle_z < (float)angle)
     {
       checkEmergencyStop();
+      updateGyroUart(); // Průběžná aktualizace úhlu z UARTu
+      
       man.motor(motorL).speed(-1500);
       man.motor(motorR).speed(-1500);
-      man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
-                                    {
-            //printf("M3: position:%d\n", info.position());
-            ticks_MR = -info.position(); });
-      man.motor(motorL).requestInfo([&ticks_ML](rb::Motor &info)
-                                    {
-            //printf("M2: position:%d\n", info.position());
-            ticks_ML = info.position(); });
 
-      delay(10);
+      ::delay(10);
     }
     man.motor(motorR).speed(0);
     man.motor(motorL).speed(0);
@@ -136,26 +142,27 @@ struct Movement
 
   void TurnRight(int angle)
   {
-    man.motor(motorL).setCurrentPosition(0);
-    man.motor(motorR).setCurrentPosition(0);
-    int ticks_ML = 0;
-    int ticks_MR = 0;
-    int distance = ((PI * wheel_base) / 360) * angle / mm_to_ticks;
-    while (distance > ticks_MR)
+    // Resetujeme gyroskop na ESP32
+    resetGyroZ();
+    
+    // Hned po resetu aktivně vyčítáme data z UARTu po dobu 150 ms, aby se projevilo vynulování
+    uint32_t start_wait = millis();
+    while (millis() - start_wait < 150)
+    {
+      updateGyroUart();
+      ::delay(5);
+    }
+
+    // Otáčíme se doprava, úhel klesá do záporných hodnot
+    while (gyro_angle_z > -(float)angle)
     {
       checkEmergencyStop();
+      updateGyroUart(); // Průběžná aktualizace úhlu z UARTu
+      
       man.motor(motorL).speed(1500);
       man.motor(motorR).speed(1500);
-      man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
-                                    {
-            //Serial.println( -info.position());//"M3: position:%d\n",
-            ticks_MR = info.position(); });
-      man.motor(motorL).requestInfo([&ticks_ML](rb::Motor &info)
-                                    {
-            //printf("M2: position:%d\n", info.position());
-            ticks_ML = -info.position(); });
 
-      delay(10);
+      ::delay(10);
     }
     man.motor(motorR).speed(0);
     man.motor(motorL).speed(0);

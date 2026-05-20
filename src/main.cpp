@@ -1,131 +1,48 @@
 #include <Arduino.h>
-#include <Wire.h>
-#include "gyro.hpp"
+#include "RBCX.h"
 
-// Definice pinů pro UART komunikaci s deskou RBCX
-#define UART_RX_PIN 16
-#define UART_TX_PIN 17
-#define UART_BAUD 115200
+#define GYRO_UART_RX 16
+#define GYRO_UART_TX 17
+#define GYRO_UART_BAUD 115200
 
-// Definice pinů pro I2C sběrnici gyroskopu MPU-6050
-#define I2C_SDA 21
-#define I2C_SCL 22
-
-// Struktura paketu pro posílání úhlu Z (ESP32 -> RBCX)
 struct __attribute__((__packed__)) GyroPacket {
-    uint8_t sync1; // První synchronizační bajt (0x12)
-    uint8_t sync2; // Druhý synchronizační bajt (0x34)
-    float angleZ;  // Relativní úhel otočení v ose Z (Heading) ve stupních
+    uint8_t sync1; // 0x12
+    uint8_t sync2; // 0x34
+    float angleZ;
 };
-
-// Struktura paketu pro přijímání příkazů (RBCX -> ESP32)
-struct __attribute__((__packed__)) CommandPacket {
-    uint8_t sync1; // První synchronizační bajt (0x56)
-    uint8_t sync2; // Druhý synchronizační bajt (0x78)
-    uint8_t cmd;   // Příkaz (např. 'R' pro reset Z)
-};
-
-// Funkce pro skenování I2C adres na sběrnici
-void scanI2CBus(TwoWire &bus, const char* name) {
-    Serial.printf("--- Skenuji I2C sbernici: %s ---\n", name);
-    int count = 0;
-    for (uint8_t address = 1; address < 127; address++) {
-        bus.beginTransmission(address);
-        uint8_t error = bus.endTransmission();
-        if (error == 0) {
-            Serial.printf("  Nalezeno zarizeni na adrese 0x%02X\n", address);
-            count++;
-        } else if (error == 4) {
-            Serial.printf("  Neznama chyba na adrese 0x%02X\n", address);
-        }
-    }
-    if (count == 0) {
-        Serial.println("  Zadna zarizeni nenalezena.");
-    }
-    Serial.println("-------------------------------------");
-}
-
-// Odeslání aktuálního úhlu Z do desky RBCX (20x za sekundu)
-void sendGyroData() {
-    static unsigned long last_send = 0;
-    if (millis() - last_send >= 50) { 
-        last_send = millis();
-
-        GyroPacket pkt;
-        pkt.sync1 = 0x12;
-        pkt.sync2 = 0x34;
-        pkt.angleZ = gyroGetAngleZ();
-
-        Serial2.write((const uint8_t*)&pkt, sizeof(pkt));
-
-        // Výpis odesílaných dat do sériového monitoru
-        Serial.printf("Odesilam -> Sync: [0x%02X, 0x%02X] | Uhel Z: %.2f deg\n", 
-                      pkt.sync1, pkt.sync2, pkt.angleZ);
-    }
-}
-
-// Příjem robustního paketu k resetu z RBCX
-void receiveCommands() {
-    while (Serial2.available() >= sizeof(CommandPacket)) {
-        // 1. Ověření prvního synchronizačního bajtu (0x56)
-        if (Serial2.peek() != 0x56) {
-            Serial2.read(); // Zahodit neplatný bajt a hledat dál
-            continue;
-        }
-
-        // Přečteme první ověřený bajt
-        Serial2.read();
-
-        // 2. Ověření druhého synchronizačního bajtu (0x78)
-        if (Serial2.peek() != 0x78) {
-            // Pokud druhý nesouhlasí, s1 byl planý poplach.
-            continue;
-        }
-
-        // Přečteme druhý ověřený bajt
-        Serial2.read();
-
-        // 3. Přečteme samotný příkaz
-        uint8_t cmd = Serial2.read();
-
-        // Pokud je příkaz 'R' (Reset), provedeme reset osy Z
-        if (cmd == 'R' || cmd == 'r') {
-            gyroResetZ();
-            Serial.println("RBCX příkaz: Robustní Reset osy Z (Heading) proveden.");
-        }
-    }
-}
 
 void setup() {
+    // Inicializace RBCX manageru (předchází restartům z důvodu Watchdogu)
+    auto &man = rb::Manager::get();
+    man.install();
+
     Serial.begin(115200);
     delay(1000);
-    Serial.println("=== ESP32 Gyro UART uzel: MPU6050 ===");
+    Serial.println("=== RBCX UART GYRO TEST (WITH RBCX MANAGER) ===");
 
-    // Inicializace I2C pro gyroskop
-    pinMode(I2C_SDA, INPUT_PULLUP);
-    pinMode(I2C_SCL, INPUT_PULLUP);
-    delay(50);
-    Wire.begin(I2C_SDA, I2C_SCL, 100000);
-
-    // Otestování přítomnosti gyroskopu na sběrnici
-    scanI2CBus(Wire, "Wire (Piny 21/22)");
-
-    // Inicializace a kalibrace MPU6050
-    gyroInit();
-
-    // Inicializace UART2 sběrnice pro komunikaci s RBCX deskou
-    Serial2.begin(UART_BAUD, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
-    Serial.printf("UART2 pro RBCX spuštěn (RX=%d, TX=%d, Baud=%d)\n", UART_RX_PIN, UART_TX_PIN, UART_BAUD);
-
-    Serial.println("=== Inicializace kompletní. Spouštím přenosy ===");
+    // Inicializace UART1 pro komunikaci s gyroskopem (ESP32)
+    Serial1.begin(GYRO_UART_BAUD, SERIAL_8N1, GYRO_UART_RX, GYRO_UART_TX);
+    Serial.printf("Serial1 spusten na RX=%d, TX=%d, Baud=%d\n", GYRO_UART_RX, GYRO_UART_TX, GYRO_UART_BAUD);
 }
 
 void loop() {
-    // 1. Odeslat data gyroskopu do RBCX desky (a vypsat na USB Serial)
-    sendGyroData();
-
-    // 2. Přijmout a zpracovat případné příkazy k resetu z RBCX
-    receiveCommands();
-
-    delay(2);
+    // Vyčítáme a vypisujeme vše, co přijde
+    while (Serial1.available() > 0) {
+        // Pokud začíná hlavička 0x12 a máme dostatek bajtů na celý paket
+        if (Serial1.peek() == 0x12 && Serial1.available() >= sizeof(GyroPacket)) {
+            GyroPacket pkt;
+            Serial1.readBytes((uint8_t*)&pkt, sizeof(GyroPacket));
+            
+            if (pkt.sync2 == 0x34) {
+                Serial.printf("[PAKET] Sync: [0x12, 0x34] -> Uhel Z: %.2f deg\n", pkt.angleZ);
+            } else {
+                Serial.printf("[CHYBA SYNC] Nasel jsem 0x12, ale druhy sync je 0x%02X (uhel=%.2f)\n", pkt.sync2, pkt.angleZ);
+            }
+        } else {
+            // Ostatní data vypíšeme jako surové bajty v HEX a DEC
+            uint8_t rawByte = Serial1.read();
+            Serial.printf("[RAW] 0x%02X (%d)\n", rawByte, rawByte);
+        }
+    }
+    delay(1);
 }

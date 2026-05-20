@@ -211,7 +211,7 @@ void WaitForStart()
             delay(500);
         }
         
-        // Vypisování hodnoty z předního RGB senzoru (S1 na rameni) každých 300 ms po startu desky
+        // Vypisování hodnoty z předního RGB senzoru (S1 na rameni) a gyroskopu každých 300 ms po startu desky
         if (millis() - last_print >= 300) {
             Color col1 = sens.GetColorRGB1();
             const char* s1_col = (col1 == COLOR_RED) ? "Cervena" : ((col1 == COLOR_GREEN) ? "Zelena" : "Modra");
@@ -436,15 +436,36 @@ void setup(){
 
 
 
+  // Nastavení pinů pro I2C sběrnice na INPUT_PULLUP
+  pinMode(21, INPUT_PULLUP);
+  pinMode(22, INPUT_PULLUP);
+  pinMode(14, INPUT_PULLUP);
+  pinMode(26, INPUT_PULLUP);
+  delay(10); // Stabilizace pinů
+
   // Inicializace I2C sběrnic (přední a spodní) - voláno pouze jednou
-  Wire1.begin(21, 22, 100000); // Přední sběrnice (MPU-6050 + RGB S1)
-  Wire.begin(14, 26, 100000);  // Spodní sběrnice (RGB S2)
- sens.InitRGB();
-  // Nejprve inicializujeme a zkalibrujeme gyroskop
+  Wire.begin(14, 26, 400000);  // Sběrnice na pinech 14 a 26 (MPU-6050 + Front S1)
+  Wire1.begin(21, 22, 400000); // Sběrnice na pinech 21 a 22 (Down S2)
+
+  // 1. Sken před spuštěním gyroskopu
+  Serial.println(">>> BEFORE GYROSCOPE INIT <<<");
+  sens.ScanBus(Wire, "Wire (Gyro + Front S1 Bus)");
+
+  // 2. Inicializace a kalibrace gyroskopu (single-threaded)
   gyroInit();
 
-  // Poté inicializujeme RGB senzory
- 
+  // Znovu nastavit pins a speed pro Wire po mpu.begin() v gyroInit()
+  Wire.begin(14, 26, 400000);
+
+  // 3. Sken po spuštění gyroskopu
+  Serial.println(">>> AFTER GYROSCOPE INIT <<<");
+  sens.ScanBus(Wire, "Wire (Gyro + Front S1 Bus)");
+
+  // 4. Inicializace barevných senzorů (single-threaded)
+  sens.InitRGB();
+
+  // 5. Spuštění FreeRTOS tasku gyroskopu (až po kompletním dokončení všech begin() volání)
+  gyroStart();
 
   servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
   

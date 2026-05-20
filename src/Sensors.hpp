@@ -26,23 +26,20 @@ struct Sensors{
     uint16_t red_2 = 0, green_2 = 0, blue_2 = 0, clear_2 = 0; // barvy na barevnem senzoru 2
 
     void InitRGB(){
-        pinMode(RGB_SDA_front_pin, PULLUP);
-        pinMode(RGB_SCL_front_pin, PULLUP);
-        pinMode(RGB_SDA_down_pin, PULLUP);
-        pinMode(RGB_SCL_down_pin, PULLUP);
-        Wire1.begin(RGB_SDA_front_pin, RGB_SCL_front_pin, 100000); // pro predni senzor 
-        Wire.begin(RGB_SDA_down_pin, RGB_SCL_down_pin, 100000); // pro spodni senzor 
+        delay(100); // Počkej na stabilizaci napájení senzorů
+        pinMode(RGB_SDA_front_pin, INPUT_PULLUP);
+        pinMode(RGB_SCL_front_pin, INPUT_PULLUP);
+        pinMode(RGB_SDA_down_pin, INPUT_PULLUP);
+        pinMode(RGB_SCL_down_pin, INPUT_PULLUP);
 
         if (!rgb_front.begin(TCS34725_ADDRESS, &Wire1)) {
-        Serial.printf("Can not connect to the front RGB sensor");
-        delay(500);  // aby se zprava urcite stihla vypsat 
-        abort();
+            Serial.printf("Can not connect to the front RGB sensor");
+            delay(500);  // aby se zprava urcite stihla vypsat 
         }
 
         if (!rgb_down.begin(TCS34725_ADDRESS, &Wire)) {
             Serial.printf("Can not connect to the down RGB sensor");
             delay(500); 
-            abort();
         }
     }
 

@@ -1,0 +1,23 @@
+- FUNGUJE NA ESP32 -- OBA 2 SENZORY ZAPOJENY NA I2C 21, 22 --- KOD JE V 2_senzory.....
+
+- NA RBCX FUNGUJE VZDY JEN Gyro.... barevnj se neinicializuje
+ ---------------- 
+ =============================================
+Calibrating MPU-6050... KEEP ROBOT STILL!
+=============================================
+MPU-6050 Calibration completed successfully!
+=============================================
+Can not connect to the front RGB sensorFRONT S1: R: 76.8, G: 83.8, B: 78.6, Clear: 146 (Modra) | Gyro [deg]: X=0.00, Y=0.00, Z=0.00
+FRONT S1: R: 76.8, G: 83.8, B: 78.6, Clear: 146 (Modra) | Gyro [deg]: X=0.00, Y=0.00, Z=0.00
+FRONT S1: R: 75.1, G: 83.8, B: 78.6, Clear: 146 (Modra) | Gyro [deg]: X=0.00, Y=0.00, Z=0.00
+
+
+=============================================
+
+
+----------------------
+
+- mozna to bude mit za vinu nejaky rezistor.....
+- podivat se na kiked
+- v kikedu jen 330 ohmu, pokudto nejde pres vsel
+- v patek s tim otravovat burdu

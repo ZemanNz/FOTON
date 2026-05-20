@@ -1,531 +1,111 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_VL53L0X.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
 #include <RBCX.h>
-#include <stdarg.h>
 
-auto &man = rb::Manager::get(); // pro fungovani RBCX
+auto &man = rb::Manager::get();
 
-String logBuffer = "";
+Adafruit_MPU6050 mpu;
 
-void logMsg(const char* format, ...) {
-    char temp[256];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(temp, sizeof(temp), format, args);
-    va_end(args);
+// Wire1 pins (front I2C bus where color sensor S1 is connected)
+static const uint8_t SDA_PIN = 21;
+static const uint8_t SCL_PIN = 22;
+
+float gyroZOffset = 0.0f;
+float heading = 0.0f; // Cumulative heading in degrees
+unsigned long lastTime = 0;
+
+// Calibrate the gyroscope offset at boot
+void calibrateGyro() {
+    Serial.println("=============================================");
+    Serial.println("Calibrating gyroscope... KEEP ROBOT STILL!");
+    Serial.println("=============================================");
     
-    logBuffer += temp;
-    logBuffer += "\n";
-    Serial.println(temp);
-}
-
-void checkEmergencyStop() {
-    if (man.buttons().down() == 1) {
-        man.motor(rb::MotorId::M1).speed(0);
-        man.motor(rb::MotorId::M2).speed(0);
-        man.motor(rb::MotorId::M3).speed(0);
-        man.motor(rb::MotorId::M4).speed(0);
-        
-        Serial.println("\n--- EMERGENCY STOP - VYPIS ULOZENYCH ZAZNAMU ---");
-        Serial.print(logBuffer);
-        Serial.println("--- KONEC VYPISU ---\n");
-        Serial.println("Robot je zastaven. Resetujte pro novy start.");
-        
-        while(true) {
-            ::delay(100);
-            if (man.buttons().down() == 1) {
-                Serial.println("\n--- VYPIS ULOZENYCH ZAZNAMU (LOG BUFFER) ---");
-                Serial.print(logBuffer);
-                Serial.println("--- KONEC VYPISU ---\n");
-                ::delay(500);
-            }
-        }
-    }
-}
-
-void safeDelay(uint32_t ms) {
-    uint32_t start = millis();
-    while (millis() - start < ms) {
-        checkEmergencyStop();
-        ::delay(10);
-    }
-}
-
-#include "Grabber.hpp"
-#include "Movement.hpp"
-#include "Arm.hpp"
-#include "Sensors.hpp"
-
-// Redirect all delay() calls to safeDelay() so that they also check for emergency stop
-// (defined after includes to avoid conflicting with system and library headers)
-#define delay safeDelay
-
-Grabber grab;
-Movement move;
-Sensors sens;
-Arm arm;
-
-// Vytvoření nové sběrnice Wire1
-extern TwoWire Wire1;
-
-int final_time = 220;
-
-byte smaller_red_count = 0;
-byte smaller_green_count = 0;
-byte smaller_blue_count = 0;
-byte bigger_red_count = 0;
-byte bigger_green_count = 0;
-byte bigger_blue_count = 0;
-
-void checkButtons() {
-    if (man.buttons().left() == 1) {
-        Color col1 = sens.GetColorRGB1();
-        Color col2 = sens.GetColorRGB2();
-        const char* s1_col = (col1 == COLOR_RED) ? "Cervena" : ((col1 == COLOR_GREEN) ? "Zelena" : "Modra");
-        const char* s2_col = (col2 == COLOR_RED) ? "Cervena" : ((col2 == COLOR_GREEN) ? "Zelena" : "Modra");
-        Serial.printf("LEFT: S1 (Front) -> R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s) | S2 (Down) -> R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s)\n",
-            sens.r_1, sens.g_1, sens.b_1, sens.clear_1, s1_col,
-            sens.r_2, sens.g_2, sens.b_2, sens.clear_2, s2_col);
-        delay(200);
-    }
-
-    if (man.buttons().right() == 1) {
-        sens.ReadRGB();
-        logMsg("RIGHT: Merim barvy... S1 Clear: %d, S2 Clear: %d", sens.clear_1, sens.clear_2);
-        
-        bool found_s1 = (sens.clear_1 < 1000);
-        bool found_s2 = (sens.clear_2 < 1000);
-        
-        if (found_s1) {
-            const char* col_name = (sens.GetColorRGB1() == COLOR_RED) ? "Cervena" : ((sens.GetColorRGB1() == COLOR_GREEN) ? "Zelena" : "Modra");
-            logMsg("Predni senzor (S1) detekoval barvu: %s (Clear: %d v toleranci)", col_name, sens.clear_1);
-            
-            logMsg("Zaviram velke klepeto...");
-            grab.BiggerArmClose();
-            delay(1000);
-            
-            logMsg("Hazim kostku za sebe...");
-            arm.BiggerBack();
-            delay(1000);
-            
-            logMsg("Oteviram velke klepeto vzadu...");
-            grab.BiggerArmOpen();
-            delay(1000);
-            
-            logMsg("Vracim velke klepeto nahoru...");
-            arm.BiggerUp();
-            delay(1000);
-        }
-        
-        if (found_s2) {
-            const char* col_name = (sens.GetColorRGB2() == COLOR_RED) ? "Cervena" : ((sens.GetColorRGB2() == COLOR_GREEN) ? "Zelena" : "Modra");
-            logMsg("Spodni senzor (S2) detekoval barvu: %s (Clear: %d v toleranci)", col_name, sens.clear_2);
-            
-            logMsg("Zaviram male klepeto...");
-            grab.SmallerArmClose();
-            delay(1000);
-            
-            logMsg("Hazim kostku za sebe...");
-            arm.SmallerBack();
-            delay(1000);
-            
-            logMsg("Oteviram male klepeto vzadu...");
-            grab.SmallerArmOpen();
-            delay(1000);
-            
-            logMsg("Vracim male klepeto nahoru...");
-            arm.SmallerUp();
-            delay(1000);
-        }
-        
-        if (!found_s1 && !found_s2) {
-            logMsg("Zadna kostka v toleranci (clear < 1000) nebyla nalezena.");
-        }
-        
-        delay(200);
-    }
-
-    if (man.buttons().down() == 1) {
-        if (logBuffer.length() > 0) {
-            Serial.println("\n--- VYPIS ULOZENYCH ZAZNAMU (LOG BUFFER) ---");
-            Serial.print(logBuffer);
-            Serial.println("--- KONEC VYPISU ---\n");
-        } else {
-            Serial.println("\n--- LOG BUFFER JE PRAZDNY ---\n");
-        }
-        delay(500);
-    }
-}
-
-void WaitForStart()
-{
-    uint32_t last_print = 0;
-    while (true)
-    {
-        if (man.buttons().on() == 1)
-        {
-            logBuffer = ""; // Reset log buffer for the new run
-            break;
-        }
+    float sum = 0.0f;
+    const int samples = 200;
+    
+    for (int i = 0; i < samples; i++) {
+        sensors_event_t a, g, temp;
+        mpu.getEvent(&a, &g, &temp);
+        sum += g.gyro.z;
         delay(10);
-        if (man.buttons().up() == 1){
-          arm.BiggerUp();
-          arm.SmallerUp();
-          move.BackwardUntillWall(20000);
-          move.Straight(1000, 40, 1000);
-          move.TurnLeft(88);
-          move.BackwardUntillWall(3000);
-          move.Acceleration(300, 10000, 250);
-          move.ArcRight(90, 190);
-          move.ArcLeft(180, 200);
-          move.Straight(4000, 10000, 32000);
-        }
-        
-        // Pravé tlačítko: otestování klepeta na dlouhém rameni (Bigger arm)
-        if (man.buttons().right() == 1) {
-            grab.BiggerArmClose();
-            delay(1000);
-            grab.BiggerArmOpen();
-            delay(200);
-        }
-        
-        // Levé tlačítko: otestování klepeta na kratším rameni (Smaller arm)
-        if (man.buttons().left() == 1) {
-            grab.SmallerArmClose();
-            delay(1000);
-            grab.SmallerArmOpen();
-            delay(200);
-        }
-        
-        // Spodní tlačítko (DOWN): výpis uloženého log bufferu
-        if (man.buttons().down() == 1) {
-            if (logBuffer.length() > 0) {
-                Serial.println("\n--- VYPIS ULOZENYCH ZAZNAMU (LOG BUFFER) ---");
-                Serial.print(logBuffer);
-                Serial.println("--- KONEC VYPISU ---\n");
-            } else {
-                Serial.println("\n--- LOG BUFFER JE PRAZDNY ---\n");
-            }
-            delay(500);
-        }
-        
-        // Vypisování hodnoty z předního RGB senzoru (S1 na rameni) každých 300 ms po startu desky
-        if (millis() - last_print >= 300) {
-            Color col1 = sens.GetColorRGB1();
-            const char* s1_col = (col1 == COLOR_RED) ? "Cervena" : ((col1 == COLOR_GREEN) ? "Zelena" : "Modra");
-            Serial.printf("FRONT S1: R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s)\n",
-                sens.r_1, sens.g_1, sens.b_1, sens.clear_1, s1_col);
-            last_print = millis();
-        }
     }
+    
+    gyroZOffset = sum / samples;
+    Serial.printf("Calibration completed. Static Z offset: %.5f rad/s\n", gyroZOffset);
+    Serial.println("Press LEFT button to reset heading to 0.00 deg.");
+    Serial.println("=============================================");
 }
 
-void CheckBattery()
-{
-    const auto &bat = man.battery();
-    static const uint32_t VOLTAGE_MAX = 7800; //%edit
-    static const uint32_t VOLTAGE_MIN = 7000; //%edit
-    int i = 0;
-    int voltage = 0;
-    for (i = 0; i < 2; ++i)
-    {
-        voltage = bat.voltageMv();
-        // Vypočítej procenta (omez na 0-100)
-        int pct = (voltage - VOLTAGE_MIN) * 100 / (VOLTAGE_MAX - VOLTAGE_MIN);
-        if (pct > 100)
-            pct = 100;
-        if (pct < 0)
-            pct = 0;
+void setup() {
+    Serial.begin(115200);
+    delay(500);
 
-        if (i > 0)
-        {
-            printf("Battery at %d%%, %dmv\n", pct, voltage);
-            if (voltage < VOLTAGE_MIN)
-            {
-                printf("Je třeba nabít baterii!\n");
-            }
+    man.install();
+
+    // Initialize Wire1 (pins 21 and 22)
+    Wire1.begin(SDA_PIN, SCL_PIN, 100000);
+
+    Serial.println("Initializing Adafruit MPU-6050...");
+    
+    bool status = false;
+    if (mpu.begin(0x68, &Wire1)) {
+        status = true;
+    } else if (mpu.begin(0x69, &Wire1)) {
+        status = true;
+    }
+
+    if (!status) {
+        Serial.println("Failed to find MPU-6050 chip! Check connection/wiring!");
+        while (1) {
+            delay(10);
         }
-        delay(1000);
     }
-}
 
-void GoToField(){
-  move.Acceleration(900, 10000, 500);
-  logMsg("go to field1");
-  move.ArcRight(170,180);
-  logMsg("go to field2");
-  //move.Straight(3200,100,5000);
-  move.ArcLeft(150, 140);
-  logMsg("go to field3");
-  move.Straight(32000, 1450,4000);
-  logMsg("go to field4");
-  move.Acceleration(32000, 100, 320);
-  logMsg("go to field5");
-  move.Stop();
-}
+    // Configure sensor settings
+    mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
+    mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
-{
-    if (smaller_arm_brick == COLOR_RED)
-    {
-      logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.");
-      move.TurnLeft(90);
-      move.BackwardUntillWall();
-      move.Straight(2500, 180+smaller_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
-      move.Stop();
-      move.TurnRight(90);
-      move.BackwardUntillWall();
-      logMsg("Přesouvám malé rameno dozadu (červená).");
-      arm.SmallerBack();
-      if (bigger_arm_brick == COLOR_RED) {
-        logMsg("Přesouvám také velké rameno dozadu (červená).");
-        arm.BiggerBack();
-      }
-      delay(1000);
-      if (bigger_arm_brick == COLOR_RED) {
-        logMsg("Otevírám velké klepeto (červená).");
-        grab.BiggerArmOpen();
-      }
-      logMsg("Otevírám malé klepeto (červená).");
-      grab.SmallerArmOpen();
-      delay(1000);
-      logMsg("Vracím obě ramena nahoru.");
-      arm.SmallerUp();
-      arm.BiggerUp();
-      delay(200);
-
-      move.Straight(2000, 100, 1000);
-    }
-    else if (smaller_arm_brick == COLOR_GREEN)
-    {
-      logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro malé klepeto.");
-      move.TurnLeft(90);
-      move.BackwardUntillWall();
-      move.Acceleration(600, 10000, 200);
-      move.Straight(10000, 360+smaller_green_count*40, 5000);
-      move.Stop();
-      move.TurnRight(90);
-      move.BackwardUntillWall();
-      logMsg("Přesouvám malé rameno dozadu (zelená).");
-      arm.SmallerBack();
-      if (bigger_arm_brick == COLOR_GREEN) {
-        logMsg("Přesouvám také velké rameno dozadu (zelená).");
-        arm.BiggerBack();
-      }
-      delay(1000);
-      if (bigger_arm_brick == COLOR_GREEN) {
-        logMsg("Otevírám velké klepeto (zelená).");
-        grab.BiggerArmOpen();
-      }
-      logMsg("Otevírám malé klepeto (zelená).");
-      grab.SmallerArmOpen();
-      delay(1000);
-      logMsg("Vracím obě ramena nahoru.");
-      arm.SmallerUp();
-      arm.BiggerUp();
-      delay(200);
-      move.Straight(2000, 100, 1000);
-    }
-    else // blue
-    {
-      logMsg("Doručuji kostky: Jedu na MODROU pozici pro malé klepeto.");
-      move.TurnRight(90);
-      move.BackwardUntillWall();
-      move.Straight(2000, 210 +smaller_blue_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
-      move.Stop();
-      move.TurnLeft(90);
-      move.BackwardUntillWall();
-      logMsg("Přesouvám malé rameno dozadu (modrá).");
-      arm.SmallerBack();
-      if (bigger_arm_brick == COLOR_BLUE) {
-        logMsg("Přesouvám také velké rameno dozadu (modrá).");
-        arm.BiggerBack();
-      }
-      delay(1000);
-      if (bigger_arm_brick == COLOR_BLUE) {
-        logMsg("Otevírám velké klepeto (modrá).");
-        grab.BiggerArmOpen();
-      }
-      logMsg("Otevírám malé klepeto (modrá).");
-      grab.SmallerArmOpen();
-      delay(1000);
-      logMsg("Vracím obě ramena nahoru.");
-      arm.SmallerUp();
-      arm.BiggerUp();
-      delay(200);
-      move.Straight(2000, 100, 1000);
-    }
-    if (bigger_arm_brick != smaller_arm_brick)
-    {
-      if (bigger_arm_brick == COLOR_RED)
-      {
-        logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro velké klepeto.");
-        move.TurnLeft(90);
-        move.BackwardUntillWall();
-        move.Straight(2000, 180 + bigger_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
-        move.Stop();
-        move.TurnRight(90);
-        move.BackwardUntillWall();
-        logMsg("Přesouvám velké rameno dozadu (červená).");
-        arm.BiggerBack();
-        delay(1000);
-        logMsg("Otevírám velké klepeto (červená).");
-        grab.BiggerArmOpen();
-        delay(1000);
-        logMsg("Vracím velké rameno nahoru.");
-        arm.BiggerUp();
-        delay(200);
-        move.Straight(2000, 100, 1000);
-      }
-      else if (bigger_arm_brick == COLOR_GREEN)
-      {
-        logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro velké klepeto.");
-        move.TurnLeft(90);
-        move.BackwardUntillWall();
-        move.Acceleration(600, 10000, 200);
-        move.Straight(10000, 360 + bigger_green_count*40, 5000);
-        move.Stop();
-        move.TurnRight(90);
-        move.BackwardUntillWall();
-        logMsg("Přesouvám velké rameno dozadu (zelená).");
-        arm.BiggerBack();
-        delay(1000);
-        logMsg("Otevírám velké klepeto (zelená).");
-        grab.BiggerArmOpen();
-        delay(1000);
-        logMsg("Vracím velké rameno nahoru.");
-        arm.BiggerUp();
-        delay(200);
-        move.Straight(2000, 100, 1000);
-      }
-      else // blue
-      {
-        logMsg("Doručuji kostky: Jedu na MODROU pozici pro velké klepeto.");
-        move.TurnRight(90);
-        move.BackwardUntillWall();
-        move.Straight(2000, 200 + bigger_blue_count*20, 1000);
-        move.Stop();
-        move.TurnLeft(90);
-        move.BackwardUntillWall();
-        logMsg("Přesouvám velké rameno dozadu (modrá).");
-        arm.BiggerBack();
-        delay(1000);
-        logMsg("Otevírám velké klepeto (modrá).");
-        grab.BiggerArmOpen();
-        delay(1000);
-        logMsg("Vracím velké rameno nahoru.");
-        arm.BiggerUp();
-        delay(200);
-        move.Straight(2000, 100, 1000);
-      }
-    }
-}
-
-
-void setup(){
-
-   auto &man = rb::Manager::get(); // get manager instance as singleton
-    man.install();  // install manager, this will initialize the hardware and the
+    delay(100);
     
-  Serial.begin(115200);
-  delay(100);
-
-
-
-
-  sens.InitRGB(); // Inicializace RGB senzorů
-
-  servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
-  
-  grab.BiggerArmOpen();
-  grab.SmallerArmOpen();
-
-
-  WaitForStart(); // Čekej na stisk tlačítka "ON" pro spuštění
-
-  float start_time = millis()/1000; // Ulož čas spuštění v sekundách
-  logMsg("Start time: %.2f seconds", start_time);
-
-  logMsg("Robot odstartoval. Inicializuji polohu ramen.");
-  arm.BiggerUp();
-  arm.SmallerUp();
-
-  logMsg("Jedu na pole (GoToField)...");
-  GoToField();
-
-  logMsg("Otačení a couvání k zadní stěně...");
-  move.TurnLeft(90);
-  move.BackwardUntillWall();
-  for (size_t lap = 0; (lap < 6) && (millis()/1000 - start_time < final_time); lap++)
-  {
-    logMsg("\n--- Start kola %d ---", lap + 1);
-    logMsg("Jedu dopředu pro vyhledání kostek...");
-    move.Acceleration(500, 20000, 210);
-    move.Straight(32000, 800 - lap*150, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
-    move.Stop();
+    calibrateGyro();
     
-    logMsg("Otáčím se k nakládací rampě/stěně.");
-    move.TurnLeft(90); // Otoč robota doprava o 90 stupňů
-    
-    logMsg("Sklápím obě ramena dopředu.");
-    arm.SmallerFront();
-    arm.BiggerFront();
-    
-    logMsg("Najíždím ke kostkám a zastavuji před nimi.");
-    move.BackwardUntillWall();
-    move.Straight(5000, 400, 5000);
-    move.Straight(2500, 450, 5000);
-    move.Stop();
-    
-    logMsg("Zavírám malé i velké klepeto pro první uchopení.");
-    grab.SmallerArmClose();
-    grab.BiggerArmClose();
-    delay(1000);
-    
-    logMsg("Couvám ke stěně a otevírám klepeta.");
-    move.BackwardUntillWall();
-    grab.SmallerArmOpen();
-    grab.BiggerArmOpen();
-    
-    logMsg("Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.");
-    move.Straight(2500, 200, 4000);
-    grab.SmallerArmClose();
-    grab.BiggerArmClose();
-    delay(1000);
-    
-    Color smaller_arm_brick = sens.GetColorRGB2();
-    Color bigger_arm_brick = sens.GetColorRGB1();
-    const char* s_color = (smaller_arm_brick == COLOR_RED) ? "červená" : ((smaller_arm_brick == COLOR_GREEN) ? "zelená" : "modrá");
-    const char* b_color = (bigger_arm_brick == COLOR_RED) ? "červená" : ((bigger_arm_brick == COLOR_GREEN) ? "zelená" : "modrá");
-    logMsg("V malém klepetu jsem chytil %s barvu.", s_color);
-    logMsg("V dlouhém (velkém) klepetu jsem chytil %s barvu.", b_color);
-    
-    move.BackwardUntillWall();
-    move.Straight(2000, 100, 1000);
-    BrickDeliver(smaller_arm_brick, bigger_arm_brick);
-    move.Stop();
-    move.TurnRight(93);
-    move.BackwardUntillWall();
-  }
-  logMsg("Konec hlavní smyčky. Zvedám ramena a jedu domů.");
-  arm.BiggerUp();
-  arm.SmallerUp();
-  move.Straight(1000, 40, 1000);
-  move.TurnRight(88);
-  move.BackwardUntillWall(17000);
-  move.Straight(1000, 140, 1000);
-  move.TurnLeft(88);
-  move.BackwardUntillWall(3000);
-  move.Acceleration(300, 10000, 250);
-  move.ArcRight(90, 190);
-  move.ArcLeft(170, 210);
-  move.Straight(4000, 10000, 32000);
-  logMsg("Robot se vrátil domů. Konec programu.");
-
+    lastTime = micros();
 }
 
 void loop() {
-  checkButtons();
-  delay(10);
+    unsigned long currentTime = micros();
+    // Calculate elapsed time in seconds since the last loop iteration
+    float dt = (float)(currentTime - lastTime) / 1000000.0f;
+    lastTime = currentTime;
+
+    // Get current sensor readings
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+
+    // Subtract the calibrated static offset
+    float gyroZ_corrected = g.gyro.z - gyroZOffset;
+
+    // Apply a deadband threshold to prevent drift when stationary (0.015 rad/s ~ 0.86 deg/s)
+    if (abs(gyroZ_corrected) < 0.015f) {
+        gyroZ_corrected = 0.0f;
+    }
+
+    // Convert rad/s to deg/s and integrate: angle = velocity * time
+    float gyroZ_deg = gyroZ_corrected * (180.0f / PI);
+    heading += gyroZ_deg * dt;
+
+    // Print output to serial
+    Serial.printf("Rotation angle (Heading): %.2f deg | Raw Z: %.4f rad/s\n", heading, g.gyro.z);
+
+    // Reset heading to 0.00 when LEFT button is pressed
+    if (man.buttons().left() == 1) {
+        heading = 0.0f;
+        Serial.println("\n>>> Heading reset to 0.00 deg! <<<\n");
+        delay(300);
+    }
+
+    delay(20); // Perform integration updates at ~50 Hz
 }

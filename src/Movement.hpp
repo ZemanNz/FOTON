@@ -114,6 +114,9 @@ struct Movement
 
   void TurnLeft(int angle)
   {
+    angle -= 4;
+    if (angle < 0) angle = 0;
+
     // Resetujeme gyroskop na ESP32
     resetGyroZ();
     
@@ -124,6 +127,11 @@ struct Movement
       updateGyroUart();
       ::delay(5);
     }
+
+    float max_speed = 1800.0f;
+    float min_speed = 450.0f;
+    float ramp_up_deg = 15.0f;
+    float ramp_down_deg = 30.0f;
 
     // Otáčíme se doleva, úhel roste do kladných hodnot
     while (gyro_angle_z < (float)angle)
@@ -131,10 +139,33 @@ struct Movement
       checkEmergencyStop();
       updateGyroUart(); // Průběžná aktualizace úhlu z UARTu
       
-      man.motor(motorL).speed(-1500);
-      man.motor(motorR).speed(-1500);
+      float current_angle = gyro_angle_z;
+      float error = (float)angle - current_angle;
+      if (error < 0.0f) error = 0.0f;
 
-      ::delay(10);
+      // Rozjezdová rampa
+      float speed_accel = max_speed;
+      if (current_angle < ramp_up_deg) {
+          float ratio = current_angle / ramp_up_deg;
+          if (ratio < 0.0f) ratio = 0.0f;
+          speed_accel = min_speed + (max_speed - min_speed) * ratio;
+      }
+
+      // Brzdná rampa
+      float speed_decel = max_speed;
+      if (error < ramp_down_deg) {
+          float ratio = error / ramp_down_deg;
+          if (ratio < 0.0f) ratio = 0.0f;
+          speed_decel = min_speed + (max_speed - min_speed) * ratio;
+      }
+
+      // Výsledná rychlost je dána pomalejší z obou ramp
+      int speed = (int)fmin(speed_accel, speed_decel);
+      
+      man.motor(motorL).speed(-speed);
+      man.motor(motorR).speed(-speed);
+
+      ::delay(5);
     }
     man.motor(motorR).speed(0);
     man.motor(motorL).speed(0);
@@ -142,6 +173,9 @@ struct Movement
 
   void TurnRight(int angle)
   {
+    angle -= 4;
+    if (angle < 0) angle = 0;
+
     // Resetujeme gyroskop na ESP32
     resetGyroZ();
     
@@ -153,16 +187,44 @@ struct Movement
       ::delay(5);
     }
 
+    float max_speed = 1800.0f;
+    float min_speed = 450.0f;
+    float ramp_up_deg = 15.0f;
+    float ramp_down_deg = 30.0f;
+
     // Otáčíme se doprava, úhel klesá do záporných hodnot
     while (gyro_angle_z > -(float)angle)
     {
       checkEmergencyStop();
       updateGyroUart(); // Průběžná aktualizace úhlu z UARTu
       
-      man.motor(motorL).speed(1500);
-      man.motor(motorR).speed(1500);
+      float current_angle = fabs(gyro_angle_z);
+      float error = (float)angle - current_angle;
+      if (error < 0.0f) error = 0.0f;
 
-      ::delay(10);
+      // Rozjezdová rampa
+      float speed_accel = max_speed;
+      if (current_angle < ramp_up_deg) {
+          float ratio = current_angle / ramp_up_deg;
+          if (ratio < 0.0f) ratio = 0.0f;
+          speed_accel = min_speed + (max_speed - min_speed) * ratio;
+      }
+
+      // Brzdná rampa
+      float speed_decel = max_speed;
+      if (error < ramp_down_deg) {
+          float ratio = error / ramp_down_deg;
+          if (ratio < 0.0f) ratio = 0.0f;
+          speed_decel = min_speed + (max_speed - min_speed) * ratio;
+      }
+
+      // Výsledná rychlost je dána pomalejší z obou ramp
+      int speed = (int)fmin(speed_accel, speed_decel);
+      
+      man.motor(motorL).speed(speed);
+      man.motor(motorR).speed(speed);
+
+      ::delay(5);
     }
     man.motor(motorR).speed(0);
     man.motor(motorL).speed(0);

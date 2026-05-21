@@ -80,7 +80,7 @@ struct Grabber
         Serial.printf("Klepeta pozice po dozavreni (id %d): %d (limit: %d)\n", id, pos, close_deg);
         
         // Pokud je pozice menší o více než 3-4 stupně od cílové, servo bylo zastaveno kostkou
-        if(pos < (close_deg - 6)){
+        if(pos < (close_deg - 3)){
             return true;
         }
         return false;

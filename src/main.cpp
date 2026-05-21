@@ -310,8 +310,14 @@ void GoToField(){
 bool bliz_prava = false;
 bool bliz_leva = false;
 
+// Vzdálenosti pro doručování kostek (v mm od stěny, o kterou se robot opře)
+int DIST_SHORT = 180;  // Krátká vzdálenost (pro modrou nebo červenou, pokud jsme u příslušné stěny)
+int DIST_MID   = 360;  // Střední vzdálenost (vždy pro zelenou uprostřed)
+int DIST_LONG  = 540; // Dlouhá vzdálenost (pokud přejíždíme k červené/modré z opačné stěny)
 
 void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
+    bool is_left_wall = (lap <= 3); // lap 1, 2, 3 znamená levá stěna (ta u červené poličky)
+
     if(smaller_arm_brick == NIC){
         delay(200);
         move.Straight(2000, 100, 1000);
@@ -319,12 +325,16 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
     else if (smaller_arm_brick == COLOR_RED)
     {
       logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.");
-      (lap <= 3) ? move.TurnLeft(90) : move.TurnRight(90);
+      is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
       move.BackwardUntillWall();
-      move.Straight(2500, 180+smaller_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      
+      int dist = is_left_wall ? (DIST_SHORT + smaller_red_count * 30) : (DIST_LONG + smaller_red_count * 30);
+      move.Straight(2500, dist, 3000);
       move.Stop();
-      (lap <= 3) ? move.TurnRight(90) : move.TurnLeft(90);
+      
+      is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
       move.BackwardUntillWall();
+      
       logMsg("Přesouvám malé rameno dozadu (červená).");
       arm.SmallerBack();
       if (bigger_arm_brick == COLOR_RED) {
@@ -345,20 +355,22 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
       delay(200);
 
       move.Straight(2000, 100, 1000);
-      bliz_prava = true;
-      bliz_leva = false;
-    
+      is_left_wall = true; // Červená je u levé stěny
     }
     else if (smaller_arm_brick == COLOR_GREEN)
     {
       logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro malé klepeto.");
-      (lap <= 3) ? move.TurnLeft(90) : move.TurnRight(90);
+      is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
       move.BackwardUntillWall();
+      
+      int dist = DIST_MID + smaller_green_count * 40;
       move.Acceleration(600, 10000, 200);
-      move.Straight(10000, 360+smaller_green_count*40, 5000);
+      move.Straight(10000, dist, 5000);
       move.Stop();
-      (lap <= 3) ? move.TurnRight(90) : move.TurnLeft(90);
+      
+      is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
       move.BackwardUntillWall();
+      
       logMsg("Přesouvám malé rameno dozadu (zelená).");
       arm.SmallerBack();
       if (bigger_arm_brick == COLOR_GREEN) {
@@ -377,20 +389,23 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
       arm.SmallerUp();
       arm.BiggerUp();
       delay(200);
+      
       move.Straight(2000, 100, 1000);
-      bliz_leva = false;
-      bliz_prava = true;
-    
+      is_left_wall = true;
     }
     else // blue
     {
       logMsg("Doručuji kostky: Jedu na MODROU pozici pro malé klepeto.");
-      (lap <= 3) ? move.TurnLeft(90) : move.TurnRight(90);
+      is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
       move.BackwardUntillWall();
-      move.Straight(2000, 210 +smaller_blue_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+      
+      int dist = is_left_wall ? (DIST_LONG + smaller_blue_count * 30) : (DIST_SHORT + smaller_blue_count * 30);
+      move.Straight(2000, dist, 3000);
       move.Stop();
-       (lap <= 3) ? move.TurnRight(90) : move.TurnLeft(90);
+      
+      is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
       move.BackwardUntillWall();
+      
       logMsg("Přesouvám malé rameno dozadu (modrá).");
       arm.SmallerBack();
       if (bigger_arm_brick == COLOR_BLUE) {
@@ -409,27 +424,30 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
       arm.SmallerUp();
       arm.BiggerUp();
       delay(200);
+      
       move.Straight(2000, 100, 1000);
-      bliz_leva = true;
-      bliz_prava = false;
-    
-    
+      is_left_wall = false; // Modrá je u pravé stěny
     }
+
     if (bigger_arm_brick != smaller_arm_brick)
     {
-       if (smaller_arm_brick == NIC){
+       if (bigger_arm_brick == NIC){
             delay(200);
             move.Straight(2000, 100, 1000);
       }
       else if (bigger_arm_brick == COLOR_RED)
       {
         logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro velké klepeto.");
-        (bliz_leva) ? move.TurnRight(90) : move.TurnLeft(90);
+        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
         move.BackwardUntillWall();
-        move.Straight(2000, 180 + bigger_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
+        
+        int dist = is_left_wall ? (DIST_SHORT + bigger_red_count * 30) : (DIST_LONG + bigger_red_count * 30);
+        move.Straight(2000, dist, 3000);
         move.Stop();
-        (bliz_leva) ? move.TurnLeft(90) : move.TurnRight(90);
+        
+        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
         move.BackwardUntillWall();
+        
         logMsg("Přesouvám velké rameno dozadu (červená).");
         arm.BiggerBack();
         delay(1000);
@@ -439,18 +457,24 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         logMsg("Vracím velké rameno nahoru.");
         arm.BiggerUp();
         delay(200);
+        
         move.Straight(2000, 100, 1000);
+        is_left_wall = true;
       }
       else if (bigger_arm_brick == COLOR_GREEN)
       {
         logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro velké klepeto.");
-        (bliz_leva) ? move.TurnRight(90) : move.TurnLeft(90);
+        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
         move.BackwardUntillWall();
+        
+        int dist = DIST_MID + bigger_green_count * 40;
         move.Acceleration(600, 10000, 200);
-        move.Straight(10000, 360 + bigger_green_count*40, 5000);
+        move.Straight(10000, dist, 5000);
         move.Stop();
-        (bliz_leva) ? move.TurnLeft(90) : move.TurnRight(90);
+        
+        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
         move.BackwardUntillWall();
+        
         logMsg("Přesouvám velké rameno dozadu (zelená).");
         arm.BiggerBack();
         delay(1000);
@@ -460,17 +484,23 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         logMsg("Vracím velké rameno nahoru.");
         arm.BiggerUp();
         delay(200);
+        
         move.Straight(2000, 100, 1000);
+        is_left_wall = true;
       }
       else // blue
       {
         logMsg("Doručuji kostky: Jedu na MODROU pozici pro velké klepeto.");
-        (bliz_leva) ? move.TurnRight(90) : move.TurnLeft(90);
+        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
         move.BackwardUntillWall();
-        move.Straight(2000, 200 + bigger_blue_count*20, 1000);
+        
+        int dist = is_left_wall ? (DIST_LONG + bigger_blue_count * 20) : (DIST_SHORT + bigger_blue_count * 20);
+        move.Straight(2000, dist, 3000);
         move.Stop();
-        (bliz_leva) ? move.TurnLeft(90) : move.TurnRight(90);
+        
+        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
         move.BackwardUntillWall();
+        
         logMsg("Přesouvám velké rameno dozadu (modrá).");
         arm.BiggerBack();
         delay(1000);
@@ -480,9 +510,15 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         logMsg("Vracím velké rameno nahoru.");
         arm.BiggerUp();
         delay(200);
+        
         move.Straight(2000, 100, 1000);
+        is_left_wall = false;
       }
     }
+    
+    // Globální proměnné pro zbytek kódu, pokud se to někam posílá
+    bliz_leva = is_left_wall;
+    bliz_prava = !is_left_wall;
 }
 
 
@@ -589,7 +625,7 @@ void setup(){
   move.BackwardUntillWall(3000);
   move.Acceleration(300, 10000, 250);
   move.ArcRight(90, 190);
-  move.ArcLeft(170, 210);
+  move.ArcLeft(170, 290);
   move.Straight(4000, 10000, 32000);
   logMsg("Robot se vrátil domů. Konec programu.");
 

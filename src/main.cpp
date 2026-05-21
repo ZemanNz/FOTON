@@ -307,7 +307,7 @@ void GoToField(){
   move.ArcRight(170,180);
   logMsg("go to field2");
   //move.Straight(3200,100,5000);
-  move.ArcLeft(150, 140);
+  move.ArcLeft(160, 140);
   logMsg("go to field3");
   move.Straight(32000, 1450,4000);
   logMsg("go to field4");
@@ -510,6 +510,8 @@ void setup(){
   logMsg("Otačení a couvání k zadní stěně...");
   move.TurnLeft(90);
   move.BackwardUntillWall();
+
+
   for (size_t lap = 0; (lap < 6) && (millis()/1000 - start_time < final_time); lap++)
   {
     logMsg("\n--- Start kola %d ---", lap + 1);
@@ -558,7 +560,7 @@ void setup(){
     move.Straight(2000, 100, 1000);
     BrickDeliver(smaller_arm_brick, bigger_arm_brick);
     move.Stop();
-    move.TurnRight(93);
+    move.TurnRight(90);
     move.BackwardUntillWall();
   }
   logMsg("Konec hlavní smyčky. Zvedám ramena a jedu domů.");

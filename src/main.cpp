@@ -488,7 +488,8 @@ void setup(){
 
   sens.InitRGB(); // Inicializace RGB senzorů
 
-  // servoBus.begin(2, UART_NUM_1, GPIO_NUM_27 ); // Inicializace sběrnice pro serva na GPIO 27 s UART1
+  servoBus.begin(2, &man.smartServoBusBackend()); // Inicializace sběrnice pro serva přes STM koprocesor
+  grab.Init(); // Inicializace smart serv (limity, AutoStop parametry)
   
   grab.BiggerArmOpen();
   grab.SmallerArmOpen();

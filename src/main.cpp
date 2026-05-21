@@ -697,8 +697,11 @@ void setup(){
   arm.BiggerUp();
   arm.SmallerUp();
   move.Straight(1000, 40, 1000);
-  move.TurnRight(88);
-  move.BackwardUntillWall(17000);
+  move.TurnLeft(90);
+  move.Acceleration(500, 30000, 300);
+  move.Straight(32000, 2200, 10000); // 300 + 2200 = 2.5 metru popředu
+  move.TurnLeft(180);
+  move.BackwardUntillWall(10000);
   move.Straight(1000, 140, 1000);
   move.TurnLeft(88);
   move.BackwardUntillWall(3000);

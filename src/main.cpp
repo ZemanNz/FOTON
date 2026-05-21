@@ -128,6 +128,75 @@ byte smaller_blue_count = 0;
 byte bigger_red_count = 0;
 byte bigger_green_count = 0;
 byte bigger_blue_count = 0;
+void DriveToBricksWithSensors(int speed, int max_distance_mm, int timeout_ms) {
+    man.motor(move.motorL).setCurrentPosition(0);
+    man.motor(move.motorR).setCurrentPosition(0);
+    
+    // Nacteni pocatecni hodnoty (pozadi)
+    sens.ReadRGB();
+    uint16_t base_clear_1 = sens.clear_1;
+    uint16_t base_clear_2 = sens.clear_2;
+    
+    if (base_clear_1 < 300) base_clear_1 = 1500;
+    if (base_clear_2 < 300) base_clear_2 = 1500;
+    
+    logMsg("Kalibrace pozadi - S1 Clear: %d, S2 Clear: %d", base_clear_1, base_clear_2);
+    
+    int time = 0;
+    int ticks_ML = 0;
+    int ticks_MR = 0;
+    int distance_ticks = max_distance_mm / move.mm_to_ticks;
+    
+    logMsg("Jedem pro kostky s aktivnim sledovanim senzoru. Max: %d mm", max_distance_mm);
+    
+    bool detected_both = false;
+    int ticks_at_detection = 0;
+    int reserve_ticks = 50 / move.mm_to_ticks; // 50 mm = 5 cm rezerva
+    
+    while (ticks_ML < distance_ticks && time < timeout_ms) {
+        checkEmergencyStop();
+        
+        man.motor(move.motorL).speed(speed);
+        man.motor(move.motorR).speed(-speed);
+        
+        man.motor(move.motorR).requestInfo([&ticks_MR](rb::Motor &info) {
+            ticks_MR = -info.position();
+        });
+        man.motor(move.motorL).requestInfo([&ticks_ML](rb::Motor &info) {
+            ticks_ML = info.position();
+        });
+        
+        sens.ReadRGB();
+        // Vypisujeme každých 100 ms pro přehlednost v logu
+        if (time % 100 == 0) {
+            printf("Senzory - S1: %d (base %d), S2: %d (base %d), pozice: %d mm\n", 
+                   sens.clear_1, base_clear_1, sens.clear_2, base_clear_2, (int)(ticks_ML * move.mm_to_ticks));
+        }
+        
+        // Zmena o 25 % dolu oproti kalibraci pozadi A zaroven hodnota pod 1200
+        bool brick1 = (sens.clear_1 < base_clear_1 * 0.75) && (sens.clear_1 < 1200);
+        bool brick2 = (sens.clear_2 < base_clear_2 * 0.75) && (sens.clear_2 < 1200);
+        
+        if (brick1 && brick2) {
+            if (!detected_both) {
+                detected_both = true;
+                ticks_at_detection = ticks_ML;
+                logMsg("Detekovany obe kostky! S1: %d, S2: %d. Jedu rezervu 5 cm.", sens.clear_1, sens.clear_2);
+            }
+        }
+        
+        if (detected_both) {
+            if (ticks_ML >= ticks_at_detection + reserve_ticks) {
+                logMsg("Rezerva 5 cm ujeta. Zastavuji jizdu.");
+                break;
+            }
+        }
+        
+        delay(10);
+        time += 10;
+    }
+    move.Stop();
+}
 
 void checkButtons() {
     if (man.buttons().left() == 1) {
@@ -237,9 +306,8 @@ void WaitForStart()
           
           logMsg("Najíždím ke kostkám a zastavuji před nimi.");
           move.BackwardUntillWall();
-          move.Straight(5000, 400, 5000);
-          move.Straight(2500, 450, 5000);
-          move.Stop();
+          move.Straight(5000, 300, 3000);
+          DriveToBricksWithSensors(2500, 550, 6000);
           
           logMsg("Zavírám malé i velké klepeto pro první uchopení.");
           grab.SmallerArmClose();
@@ -252,7 +320,7 @@ void WaitForStart()
           grab.BiggerArmOpen();
           
           logMsg("Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.");
-          move.Straight(2500, 200, 4000);
+          move.Straight(2000, 150, 2000);
           grab.SmallerArmClose();
           grab.BiggerArmClose();
           delay(1000);
@@ -364,200 +432,164 @@ int DIST_LONG  = 1000; // Dlouhá vzdálenost (zhruba metr, pokud přejíždíme
 void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
     bool is_left_wall = (lap <= 3); // lap 1, 2, 3 znamená levá stěna (ta u červené poličky)
 
-    if(smaller_arm_brick == NIC){
+    struct Delivery {
+        Color color;
+        bool is_smaller_arm;
+        int distance;
+    };
+
+    // Calculate distances
+    int dist_small = -1;
+    if (smaller_arm_brick != NIC) {
+        if (smaller_arm_brick == COLOR_RED) {
+            dist_small = is_left_wall ? (DIST_SHORT + smaller_red_count * 30) : (DIST_LONG + smaller_red_count * 30);
+        } else if (smaller_arm_brick == COLOR_GREEN) {
+            dist_small = DIST_MID + smaller_green_count * 40;
+        } else if (smaller_arm_brick == COLOR_BLUE) {
+            dist_small = is_left_wall ? (DIST_LONG + smaller_blue_count * 30) : (DIST_SHORT + smaller_blue_count * 30);
+        }
+    }
+
+    int dist_big = -1;
+    if (bigger_arm_brick != NIC) {
+        if (bigger_arm_brick == COLOR_RED) {
+            dist_big = is_left_wall ? (DIST_SHORT + bigger_red_count * 30) : (DIST_LONG + bigger_red_count * 30);
+        } else if (bigger_arm_brick == COLOR_GREEN) {
+            dist_big = DIST_MID + bigger_green_count * 40;
+        } else if (bigger_arm_brick == COLOR_BLUE) {
+            dist_big = is_left_wall ? (DIST_LONG + bigger_blue_count * 20) : (DIST_SHORT + bigger_blue_count * 20);
+        }
+    }
+
+    Delivery first = { NIC, true, 0 };
+    Delivery second = { NIC, false, 0 };
+
+    if (smaller_arm_brick != NIC && bigger_arm_brick != NIC) {
+        // Obě ramena mají kostku
+        if (dist_small <= dist_big) {
+            first = { smaller_arm_brick, true, dist_small };
+            second = { bigger_arm_brick, false, dist_big };
+        } else {
+            first = { bigger_arm_brick, false, dist_big };
+            second = { smaller_arm_brick, true, dist_small };
+        }
+    } else if (smaller_arm_brick != NIC) {
+        // Pouze malé rameno má kostku
+        first = { smaller_arm_brick, true, dist_small };
+    } else if (bigger_arm_brick != NIC) {
+        // Pouze velké rameno má kostku
+        first = { bigger_arm_brick, false, dist_big };
+    }
+
+    if (first.color == NIC) {
         delay(200);
         move.Straight(2000, 100, 1000);
-    }
-    else if (smaller_arm_brick == COLOR_RED)
-    {
-      logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.");
-      is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
-      move.BackwardUntillWall();
-      
-      int dist = is_left_wall ? (DIST_SHORT + smaller_red_count * 30) : (DIST_LONG + smaller_red_count * 30);
-      move.Straight(2500, dist, 6000);
-      move.Stop();
-      
-      is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
-      move.BackwardUntillWall();
-      
-      logMsg("Přesouvám malé rameno dozadu (červená).");
-      arm.SmallerBack();
-      if (bigger_arm_brick == COLOR_RED) {
-        logMsg("Přesouvám také velké rameno dozadu (červená).");
-        arm.BiggerBack();
-      }
-      delay(1000);
-      if (bigger_arm_brick == COLOR_RED) {
-        logMsg("Otevírám velké klepeto (červená).");
-        grab.BiggerArmOpen();
-      }
-      logMsg("Otevírám malé klepeto (červená).");
-      grab.SmallerArmOpen();
-      delay(1000);
-      logMsg("Vracím obě ramena nahoru.");
-      arm.SmallerUp();
-      arm.BiggerUp();
-      delay(200);
-
-      move.Straight(2000, 100, 1000);
-      is_left_wall = true; // Červená je u levé stěny
-    }
-    else if (smaller_arm_brick == COLOR_GREEN)
-    {
-      logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro malé klepeto.");
-      is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
-      move.BackwardUntillWall();
-      
-      int dist = DIST_MID + smaller_green_count * 40;
-      move.Straight(10000, dist, 5000);
-      move.Stop();
-      
-      is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
-      move.BackwardUntillWall();
-      
-      logMsg("Přesouvám malé rameno dozadu (zelená).");
-      arm.SmallerBack();
-      if (bigger_arm_brick == COLOR_GREEN) {
-        logMsg("Přesouvám také velké rameno dozadu (zelená).");
-        arm.BiggerBack();
-      }
-      delay(1000);
-      if (bigger_arm_brick == COLOR_GREEN) {
-        logMsg("Otevírám velké klepeto (zelená).");
-        grab.BiggerArmOpen();
-      }
-      logMsg("Otevírám malé klepeto (zelená).");
-      grab.SmallerArmOpen();
-      delay(1000);
-      logMsg("Vracím obě ramena nahoru.");
-      arm.SmallerUp();
-      arm.BiggerUp();
-      delay(200);
-      
-      move.Straight(2000, 100, 1000);
-      is_left_wall = true;
-    }
-    else // blue
-    {
-      logMsg("Doručuji kostky: Jedu na MODROU pozici pro malé klepeto.");
-      is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
-      move.BackwardUntillWall();
-      
-      int dist = is_left_wall ? (DIST_LONG + smaller_blue_count * 30) : (DIST_SHORT + smaller_blue_count * 30);
-      move.Straight(2500, dist, 6000);
-      move.Stop();
-      
-      is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
-      move.BackwardUntillWall();
-      
-      logMsg("Přesouvám malé rameno dozadu (modrá).");
-      arm.SmallerBack();
-      if (bigger_arm_brick == COLOR_BLUE) {
-        logMsg("Přesouvám také velké rameno dozadu (modrá).");
-        arm.BiggerBack();
-      }
-      delay(1000);
-      if (bigger_arm_brick == COLOR_BLUE) {
-        logMsg("Otevírám velké klepeto (modrá).");
-        grab.BiggerArmOpen();
-      }
-      logMsg("Otevírám malé klepeto (modrá).");
-      grab.SmallerArmOpen();
-      delay(1000);
-      logMsg("Vracím obě ramena nahoru.");
-      arm.SmallerUp();
-      arm.BiggerUp();
-      delay(200);
-      
-      move.Straight(2000, 100, 1000);
-      is_left_wall = false; // Modrá je u pravé stěny
-    }
-
-    if (bigger_arm_brick != smaller_arm_brick)
-    {
-       if (bigger_arm_brick == NIC){
+    } else {
+        // 1. Doručení (bližší kostka)
+        const char* color_name1 = (first.color == COLOR_RED) ? "ČERVENOU" : ((first.color == COLOR_GREEN) ? "ZELENOU" : "MODROU");
+        logMsg("Doručuji kostky: Jedu na %s pozici (1. krok).", color_name1);
+        
+        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
+        move.BackwardUntillWall();
+        
+        move.Straight(2500, first.distance, 6000);
+        move.Stop();
+        
+        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
+        move.BackwardUntillWall();
+        
+        // Vyložení první
+        if (first.color == second.color) {
+            logMsg("Přesouvám obě ramena dozadu (stejná barva).");
+            arm.SmallerBack();
+            arm.BiggerBack();
+            delay(1000);
+            grab.SmallerArmOpen();
+            grab.BiggerArmOpen();
+            delay(1000);
+            logMsg("Vracím obě ramena nahoru.");
+            arm.SmallerUp();
+            arm.BiggerUp();
             delay(200);
+        } else {
+            if (first.is_smaller_arm) {
+                logMsg("Přesouvám malé rameno dozadu.");
+                arm.SmallerBack();
+                delay(1000);
+                grab.SmallerArmOpen();
+                delay(1000);
+                logMsg("Vracím malé rameno nahoru.");
+                arm.SmallerUp();
+                delay(200);
+            } else {
+                logMsg("Přesouvám velké rameno dozadu.");
+                arm.BiggerBack();
+                delay(1000);
+                grab.BiggerArmOpen();
+                delay(1000);
+                logMsg("Vracím velké rameno nahoru.");
+                arm.BiggerUp();
+                delay(200);
+            }
+        }
+        
+        move.Straight(2000, 100, 1000);
+        
+        // Aktualizace is_left_wall podle toho, kde jsme vykládali
+        if (first.color == COLOR_RED || first.color == COLOR_GREEN) {
+            is_left_wall = true;
+        } else {
+            is_left_wall = false;
+        }
+
+        // 2. Doručení (vzdálenější kostka) - pouze pokud se liší barvy a máme druhou kostku
+        if (second.color != NIC && second.color != first.color) {
+            const char* color_name2 = (second.color == COLOR_RED) ? "ČERVENOU" : ((second.color == COLOR_GREEN) ? "ZELENOU" : "MODROU");
+            logMsg("Doručuji kostky: Přejiždím na %s pozici (2. krok).", color_name2);
+            
+            int dist_diff = second.distance - first.distance;
+            if (dist_diff < 0) dist_diff = 0;
+            
+            // Otočení rovnoběžně se stěnou (směrem od zadní stěny)
+            is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
+            
+            move.Straight(2500, dist_diff, 6000);
+            move.Stop();
+            
+            // Otočení čelem ke stěně s barevnými zónami
+            is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
+            move.BackwardUntillWall();
+            
+            // Vyložení druhé
+            if (second.is_smaller_arm) {
+                logMsg("Přesouvám malé rameno dozadu.");
+                arm.SmallerBack();
+                delay(1000);
+                grab.SmallerArmOpen();
+                delay(1000);
+                logMsg("Vracím malé rameno nahoru.");
+                arm.SmallerUp();
+                delay(200);
+            } else {
+                logMsg("Přesouvám velké rameno dozadu.");
+                arm.BiggerBack();
+                delay(1000);
+                grab.BiggerArmOpen();
+                delay(1000);
+                logMsg("Vracím velké rameno nahoru.");
+                arm.BiggerUp();
+                delay(200);
+            }
+            
             move.Straight(2000, 100, 1000);
-      }
-      else if (bigger_arm_brick == COLOR_RED)
-      {
-        logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro velké klepeto.");
-        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
-        move.BackwardUntillWall();
-        
-        int dist = is_left_wall ? (DIST_SHORT + bigger_red_count * 30) : (DIST_LONG + bigger_red_count * 30);
-        move.Straight(2500, dist, 6000);
-        move.Stop();
-        
-        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
-        move.BackwardUntillWall();
-        
-        logMsg("Přesouvám velké rameno dozadu (červená).");
-        arm.BiggerBack();
-        delay(1000);
-        logMsg("Otevírám velké klepeto (červená).");
-        grab.BiggerArmOpen();
-        delay(1000);
-        logMsg("Vracím velké rameno nahoru.");
-        arm.BiggerUp();
-        delay(200);
-        
-        move.Straight(2000, 100, 1000);
-        is_left_wall = true;
-      }
-      else if (bigger_arm_brick == COLOR_GREEN)
-      {
-        logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro velké klepeto.");
-        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
-        move.BackwardUntillWall();
-        
-        int dist = DIST_MID + bigger_green_count * 40;
-        move.Straight(10000, dist, 5000);
-        move.Stop();
-        
-        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
-        move.BackwardUntillWall();
-        
-        logMsg("Přesouvám velké rameno dozadu (zelená).");
-        arm.BiggerBack();
-        delay(1000);
-        logMsg("Otevírám velké klepeto (zelená).");
-        grab.BiggerArmOpen();
-        delay(1000);
-        logMsg("Vracím velké rameno nahoru.");
-        arm.BiggerUp();
-        delay(200);
-        
-        move.Straight(2000, 100, 1000);
-        is_left_wall = true;
-      }
-      else // blue
-      {
-        logMsg("Doručuji kostky: Jedu na MODROU pozici pro velké klepeto.");
-        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
-        move.BackwardUntillWall();
-        
-        int dist = is_left_wall ? (DIST_LONG + bigger_blue_count * 20) : (DIST_SHORT + bigger_blue_count * 20);
-        move.Straight(2500, dist, 6000);
-        move.Stop();
-        
-        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
-        move.BackwardUntillWall();
-        
-        logMsg("Přesouvám velké rameno dozadu (modrá).");
-        arm.BiggerBack();
-        delay(1000);
-        logMsg("Otevírám velké klepeto (modrá).");
-        grab.BiggerArmOpen();
-        delay(1000);
-        logMsg("Vracím velké rameno nahoru.");
-        arm.BiggerUp();
-        delay(200);
-        
-        move.Straight(2000, 100, 1000);
-        is_left_wall = false;
-      }
+            
+            // Aktualizace is_left_wall podle druhé barvy
+            if (second.color == COLOR_RED || second.color == COLOR_GREEN) {
+                is_left_wall = true;
+            } else {
+                is_left_wall = false;
+            }
+        }
     }
     
     // Globální proměnné pro zbytek kódu, pokud se to někam posílá
@@ -621,9 +653,8 @@ void setup(){
     
     logMsg("Najíždím ke kostkám a zastavuji před nimi.");
     move.BackwardUntillWall();
-    move.Straight(5000, 400, 5000);
-    move.Straight(2500, 450, 5000);
-    move.Stop();
+    move.Straight(5000, 300, 3000);
+    DriveToBricksWithSensors(2500, 550, 6000);
     
     logMsg("Zavírám malé i velké klepeto pro první uchopení.");
     grab.SmallerArmClose();
@@ -636,7 +667,7 @@ void setup(){
     grab.BiggerArmOpen();
     
     logMsg("Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.");
-    move.Straight(1500, 200, 4000);
+    move.Straight(2000, 150, 2000);
     grab.SmallerArmClose();
     grab.BiggerArmClose();
     delay(200);

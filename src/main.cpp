@@ -43,13 +43,13 @@ void updateGyroUart() {
     while (Serial1.available() >= sizeof(GyroPacket)) {
         if (Serial1.peek() != 0x12) {
             uint8_t discarded = Serial1.read();
-            Serial.printf("UART RAW: Zahozeny neplatny bajt: 0x%02X\n", discarded);
+            // Serial.printf("UART RAW: Zahozeny neplatny bajt: 0x%02X\n", discarded);
             continue;
         }
         
         uint8_t s1 = Serial1.read(); // sync1 (0x12)
         if (Serial1.peek() != 0x34) {
-            Serial.printf("UART RAW: Chyba sync2! Nasel jsem sync1=0x12, ale dalsi je 0x%02X\n", Serial1.peek());
+            // Serial.printf("UART RAW: Chyba sync2! Nasel jsem sync1=0x12, ale dalsi je 0x%02X\n", Serial1.peek());
             continue; 
         }
         uint8_t s2 = Serial1.read(); // sync2 (0x34)
@@ -58,7 +58,7 @@ void updateGyroUart() {
         Serial1.readBytes((uint8_t*)&angle, sizeof(angle));
         gyro_angle_z = angle;
         
-        Serial.printf("UART RAW: Prijat paket -> Sync: [0x%02X, 0x%02X], Uhel Z: %.2f deg\n", s1, s2, angle);
+        // Serial.printf("UART RAW: Prijat paket -> Sync: [0x%02X, 0x%02X], Uhel Z: %.2f deg\n", s1, s2, angle);
     }
 }
 
@@ -234,18 +234,28 @@ void WaitForStart()
           move.Straight(4000, 10000, 32000);
         }
         
-        // Pravé tlačítko: otestování klepeta na dlouhém rameni (Bigger arm)
+        // Pravé tlačítko: otestování funkce je_kostka_v_klepete pro menší rameno
         if (man.buttons().right() == 1) {
-            grab.BiggerArmClose();
-            delay(1000);
-            grab.BiggerArmOpen();
-            delay(200);
+            bool kostka = grab.je_kostka_v_klepete(0);
+            if (kostka) {
+                Serial.println("Kostka JE v kratsim klepetu!");
+            } else {
+                Serial.println("Kostka NENI v kratsim klepetu.");
+            }
+            delay(500);
+            grab.SmallerArmOpen(); // Vrácení do otevřené pozice po provedení testu
         }
         
-        // Levé tlačítko: po sekundové pauze se otočí o 90 stupňů doleva
+        // Levé tlačítko: otestování funkce je_kostka_v_klepete pro větší rameno
         if (man.buttons().left() == 1) {
-            delay(1000);
-            move.TurnLeft(90);
+            bool kostka = grab.je_kostka_v_klepete(1);
+            if (kostka) {
+                Serial.println("Kostka JE ve vetsim klepetu!");
+            } else {
+                Serial.println("Kostka NENI ve vetsim klepetu.");
+            }
+            delay(500);
+            grab.BiggerArmOpen(); // Vrácení do otevřené pozice po provedení testu
         }
         
         // Spodní tlačítko (DOWN): výpis uloženého log bufferu
@@ -264,9 +274,9 @@ void WaitForStart()
         if (millis() - last_print >= 300) {
             Color col1 = sens.GetColorRGB1();
             updateGyroUart();
-            const char* s1_col = (col1 == COLOR_RED) ? "Cervena" : ((col1 == COLOR_GREEN) ? "Zelena" : "Modra");
-            Serial.printf("FRONT S1: R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s) | Gyro Z (UART): %.2f deg\n",
-                sens.r_1, sens.g_1, sens.b_1, sens.clear_1, s1_col, gyro_angle_z);
+            // const char* s1_col = (col1 == COLOR_RED) ? "Cervena" : ((col1 == COLOR_GREEN) ? "Zelena" : "Modra");
+            // Serial.printf("FRONT S1: R: %.1f, G: %.1f, B: %.1f, Clear: %d (%s) | Gyro Z (UART): %.2f deg\n",
+            //     sens.r_1, sens.g_1, sens.b_1, sens.clear_1, s1_col, gyro_angle_z);
             last_print = millis();
         }
     }
@@ -316,16 +326,20 @@ void GoToField(){
   move.Stop();
 }
 
-void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
+bool bliz_prava = false;
+bool bliz_leva = false;
+
+
+void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap)
 {
     if (smaller_arm_brick == COLOR_RED)
     {
       logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro malé klepeto.");
-      move.TurnLeft(90);
+      (lap <= 3) ? move.TurnLeft(90) : move.TurnRight(90);
       move.BackwardUntillWall();
       move.Straight(2500, 180+smaller_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
       move.Stop();
-      move.TurnRight(90);
+      (lap <= 3) ? move.TurnRight(90) : move.TurnLeft(90);
       move.BackwardUntillWall();
       logMsg("Přesouvám malé rameno dozadu (červená).");
       arm.SmallerBack();
@@ -347,16 +361,19 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       delay(200);
 
       move.Straight(2000, 100, 1000);
+      bliz_prava = true;
+      bliz_leva = false;
+    
     }
     else if (smaller_arm_brick == COLOR_GREEN)
     {
       logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro malé klepeto.");
-      move.TurnLeft(90);
+      (lap <= 3) ? move.TurnLeft(90) : move.TurnRight(90);
       move.BackwardUntillWall();
       move.Acceleration(600, 10000, 200);
       move.Straight(10000, 360+smaller_green_count*40, 5000);
       move.Stop();
-      move.TurnRight(90);
+      (lap <= 3) ? move.TurnRight(90) : move.TurnLeft(90);
       move.BackwardUntillWall();
       logMsg("Přesouvám malé rameno dozadu (zelená).");
       arm.SmallerBack();
@@ -377,15 +394,18 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       arm.BiggerUp();
       delay(200);
       move.Straight(2000, 100, 1000);
+      bliz_leva = true;
+      bliz_prava = false;
+    
     }
     else // blue
     {
       logMsg("Doručuji kostky: Jedu na MODROU pozici pro malé klepeto.");
-      move.TurnRight(90);
+      (lap <= 3) ? move.TurnRight(90) : move.TurnLeft(90);
       move.BackwardUntillWall();
       move.Straight(2000, 210 +smaller_blue_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
       move.Stop();
-      move.TurnLeft(90);
+      (lap <= 3) ? move.TurnLeft(90) : move.TurnRight(90);
       move.BackwardUntillWall();
       logMsg("Přesouvám malé rameno dozadu (modrá).");
       arm.SmallerBack();
@@ -406,17 +426,21 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       arm.BiggerUp();
       delay(200);
       move.Straight(2000, 100, 1000);
+      bliz_leva = true;
+      bliz_prava = false;
+    
+    
     }
     if (bigger_arm_brick != smaller_arm_brick)
     {
       if (bigger_arm_brick == COLOR_RED)
       {
         logMsg("Doručuji kostky: Jedu na ČERVENOU pozici pro velké klepeto.");
-        move.TurnLeft(90);
+        (bliz_leva) ? move.TurnRight(90) : move.TurnLeft(90);
         move.BackwardUntillWall();
         move.Straight(2000, 180 + bigger_red_count*30, 1000); // musi se zkontrolovat, aby potom pri otaceni nanarazil cumakem do zdi
         move.Stop();
-        move.TurnRight(90);
+        (bliz_leva) ? move.TurnLeft(90) : move.TurnRight(90);
         move.BackwardUntillWall();
         logMsg("Přesouvám velké rameno dozadu (červená).");
         arm.BiggerBack();
@@ -432,12 +456,12 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       else if (bigger_arm_brick == COLOR_GREEN)
       {
         logMsg("Doručuji kostky: Jedu na ZELENOU pozici pro velké klepeto.");
-        move.TurnLeft(90);
+        (bliz_leva) ? move.TurnRight(90) : move.TurnLeft(90);
         move.BackwardUntillWall();
         move.Acceleration(600, 10000, 200);
         move.Straight(10000, 360 + bigger_green_count*40, 5000);
         move.Stop();
-        move.TurnRight(90);
+        (bliz_leva) ? move.TurnLeft(90) : move.TurnRight(90);
         move.BackwardUntillWall();
         logMsg("Přesouvám velké rameno dozadu (zelená).");
         arm.BiggerBack();
@@ -453,11 +477,11 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick)
       else // blue
       {
         logMsg("Doručuji kostky: Jedu na MODROU pozici pro velké klepeto.");
-        move.TurnRight(90);
+        (bliz_leva) ? move.TurnRight(90) : move.TurnLeft(90);
         move.BackwardUntillWall();
         move.Straight(2000, 200 + bigger_blue_count*20, 1000);
         move.Stop();
-        move.TurnLeft(90);
+        (bliz_leva) ? move.TurnLeft(90) : move.TurnRight(90);
         move.BackwardUntillWall();
         logMsg("Přesouvám velké rameno dozadu (modrá).");
         arm.BiggerBack();
@@ -558,7 +582,7 @@ void setup(){
     
     move.BackwardUntillWall();
     move.Straight(2000, 100, 1000);
-    BrickDeliver(smaller_arm_brick, bigger_arm_brick);
+    BrickDeliver(smaller_arm_brick, bigger_arm_brick, lap);
     move.Stop();
     move.TurnRight(90);
     move.BackwardUntillWall();
@@ -581,15 +605,5 @@ void setup(){
 }
 
 void loop() {
-  updateGyroUart();
-  checkButtons();
-  
-  // Pravidelný výpis obdrženého úhlu na sériový monitor
-  static unsigned long last_print = 0;
-  if (millis() - last_print >= 250) {
-      last_print = millis();
-      Serial.printf("RBCX Prijato -> Gyro Z: %.2f deg\n", gyro_angle_z);
-  }
-  
-  delay(10);
+
 }

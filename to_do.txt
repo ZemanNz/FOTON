@@ -30,3 +30,8 @@ FRONT S1: R: 75.1, G: 83.8, B: 78.6, Clear: 146 (Modra) | Gyro [deg]: X=0.00, Y=
 - lepsi se orientovani na hristi, ne tolikrat se otacet
 - lepsi navrat
 - gyro pretaci
+
+### ted :  ted::
+- zbytecne 2 narazi do steny pri zjisstovani barvy..... nemusi jet tak daleko.... 
+- vykladat driv kostku, ktera ma bliz pole
+- lepsi navrat... couvani zpet

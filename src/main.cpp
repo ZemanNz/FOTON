@@ -105,6 +105,9 @@ void safeDelay(uint32_t ms) {
 #include "Arm.hpp"
 #include "Sensors.hpp"
 
+// Dopředná deklarace
+void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap);
+
 // Redirect all delay() calls to safeDelay() so that they also check for emergency stop
 // (defined after includes to avoid conflicting with system and library headers)
 #define delay safeDelay
@@ -217,16 +220,59 @@ void WaitForStart()
         }
         delay(2);
         if (man.buttons().up() == 1){
-          arm.BiggerUp();
-          arm.SmallerUp();
-          move.BackwardUntillWall(20000);
-          move.Straight(1000, 40, 1000);
-          move.TurnLeft(88);
-          move.BackwardUntillWall(3000);
-          move.Acceleration(300, 10000, 250);
-          move.ArcRight(90, 190);
-          move.ArcLeft(180, 200);
-          move.Straight(4000, 10000, 32000);
+          int lap = 1; // Budeme simulovat levé kolo (lap <= 3)
+          
+          logMsg("\n--- Start TESTOVACIHO kola (UP) ---");
+          logMsg("Jedu dopředu pro vyhledání kostek...");
+          move.Acceleration(500, 20000, 210);
+          move.Straight(32000, 800 - lap*150, 10000);
+          move.Stop();
+          
+          logMsg("Otáčím se k nakládací rampě/stěně.");
+          move.TurnLeft(90);
+          
+          logMsg("Sklápím obě ramena dopředu.");
+          arm.SmallerFront();
+          arm.BiggerFront();
+          
+          logMsg("Najíždím ke kostkám a zastavuji před nimi.");
+          move.BackwardUntillWall();
+          move.Straight(5000, 400, 5000);
+          move.Straight(2500, 450, 5000);
+          move.Stop();
+          
+          logMsg("Zavírám malé i velké klepeto pro první uchopení.");
+          grab.SmallerArmClose();
+          grab.BiggerArmClose();
+          delay(1000);
+          
+          logMsg("Couvám ke stěně a otevírám klepeta.");
+          move.BackwardUntillWall();
+          grab.SmallerArmOpen();
+          grab.BiggerArmOpen();
+          
+          logMsg("Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.");
+          move.Straight(2500, 200, 4000);
+          grab.SmallerArmClose();
+          grab.BiggerArmClose();
+          delay(1000);
+          
+          Color smaller_arm_brick = sens.GetColorRGB2();
+          Color bigger_arm_brick = sens.GetColorRGB1();
+          const char* s_color = (smaller_arm_brick == COLOR_RED) ? "červená" : ((smaller_arm_brick == COLOR_GREEN) ? "zelená" : "modrá");
+          const char* b_color = (bigger_arm_brick == COLOR_RED) ? "červená" : ((bigger_arm_brick == COLOR_GREEN) ? "zelená" : "modrá");
+          logMsg("V malém klepetu jsem chytil %s barvu.", s_color);
+          logMsg("V dlouhém (velkém) klepetu jsem chytil %s barvu.", b_color);
+          
+          move.BackwardUntillWall();
+          move.Straight(2000, 100, 1000);
+          BrickDeliver(smaller_arm_brick, bigger_arm_brick, lap);
+          grab.SmallerArmOpen();
+          grab.BiggerArmOpen();
+          
+          move.Stop();
+          move.TurnRight(90);
+          move.BackwardUntillWall();
         }
         
         // Pravé tlačítko: otestování funkce je_kostka_v_klepete pro menší rameno
@@ -312,8 +358,8 @@ bool bliz_leva = false;
 
 // Vzdálenosti pro doručování kostek (v mm od stěny, o kterou se robot opře)
 int DIST_SHORT = 180;  // Krátká vzdálenost (pro modrou nebo červenou, pokud jsme u příslušné stěny)
-int DIST_MID   = 360;  // Střední vzdálenost (vždy pro zelenou uprostřed)
-int DIST_LONG  = 540; // Dlouhá vzdálenost (pokud přejíždíme k červené/modré z opačné stěny)
+int DIST_MID   = 600;  // Střední vzdálenost (vždy pro zelenou uprostřed)
+int DIST_LONG  = 1000; // Dlouhá vzdálenost (zhruba metr, pokud přejíždíme k červené/modré z opačné stěny)
 
 void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
     bool is_left_wall = (lap <= 3); // lap 1, 2, 3 znamená levá stěna (ta u červené poličky)
@@ -329,7 +375,7 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
       move.BackwardUntillWall();
       
       int dist = is_left_wall ? (DIST_SHORT + smaller_red_count * 30) : (DIST_LONG + smaller_red_count * 30);
-      move.Straight(2500, dist, 3000);
+      move.Straight(2500, dist, 6000);
       move.Stop();
       
       is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
@@ -364,7 +410,6 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
       move.BackwardUntillWall();
       
       int dist = DIST_MID + smaller_green_count * 40;
-      move.Acceleration(600, 10000, 200);
       move.Straight(10000, dist, 5000);
       move.Stop();
       
@@ -400,7 +445,7 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
       move.BackwardUntillWall();
       
       int dist = is_left_wall ? (DIST_LONG + smaller_blue_count * 30) : (DIST_SHORT + smaller_blue_count * 30);
-      move.Straight(2000, dist, 3000);
+      move.Straight(2500, dist, 6000);
       move.Stop();
       
       is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
@@ -442,7 +487,7 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         move.BackwardUntillWall();
         
         int dist = is_left_wall ? (DIST_SHORT + bigger_red_count * 30) : (DIST_LONG + bigger_red_count * 30);
-        move.Straight(2000, dist, 3000);
+        move.Straight(2500, dist, 6000);
         move.Stop();
         
         is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
@@ -468,7 +513,6 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         move.BackwardUntillWall();
         
         int dist = DIST_MID + bigger_green_count * 40;
-        move.Acceleration(600, 10000, 200);
         move.Straight(10000, dist, 5000);
         move.Stop();
         
@@ -495,7 +539,7 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         move.BackwardUntillWall();
         
         int dist = is_left_wall ? (DIST_LONG + bigger_blue_count * 20) : (DIST_SHORT + bigger_blue_count * 20);
-        move.Straight(2000, dist, 3000);
+        move.Straight(2500, dist, 6000);
         move.Stop();
         
         is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
@@ -592,10 +636,10 @@ void setup(){
     grab.BiggerArmOpen();
     
     logMsg("Najíždím kousek dopředu a definitivně zavírám klepeta pro uchopení kostek.");
-    move.Straight(2500, 200, 4000);
+    move.Straight(1500, 200, 4000);
     grab.SmallerArmClose();
     grab.BiggerArmClose();
-    delay(1000);
+    delay(200);
     
     Color smaller_arm_brick = sens.GetColorRGB2();
     Color bigger_arm_brick = sens.GetColorRGB1();
@@ -604,8 +648,6 @@ void setup(){
     logMsg("V malém klepetu jsem chytil %s barvu.", s_color);
     logMsg("V dlouhém (velkém) klepetu jsem chytil %s barvu.", b_color);
     
-    move.BackwardUntillWall();
-    move.Straight(2000, 100, 1000);
     BrickDeliver(smaller_arm_brick, bigger_arm_brick, lap);
     grab.SmallerArmOpen();
     grab.BiggerArmOpen();
@@ -625,7 +667,9 @@ void setup(){
   move.BackwardUntillWall(3000);
   move.Acceleration(300, 10000, 250);
   move.ArcRight(90, 190);
-  move.ArcLeft(170, 290);
+  
+  move.Acceleration(300, 10000, 100);
+  move.ArcLeft(170, 210);
   move.Straight(4000, 10000, 32000);
   logMsg("Robot se vrátil domů. Konec programu.");
 

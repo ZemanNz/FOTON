@@ -236,6 +236,14 @@ struct Movement
     while ((man.buttons().left() == 0 || man.buttons().right() == 0) && (millis() - start_timer < timeout)) //left je opravdu leve tlaitko
     { //(ticks_ML < distance)&& (ticks_MR < distance)
       checkEmergencyStop();
+      
+      unsigned long elapsed = millis() - start_timer;
+      if (man.buttons().left() == 1 || man.buttons().right() == 1) {
+        if (timeout > elapsed + 2000) {
+          timeout = elapsed + 2000;
+        }
+      }
+
       if(man.buttons().left() == 1){
         man.motor(motorL).speed(-3000);
         man.motor(motorR).speed(1000);

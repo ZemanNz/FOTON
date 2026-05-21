@@ -128,26 +128,29 @@ byte smaller_blue_count = 0;
 byte bigger_red_count = 0;
 byte bigger_green_count = 0;
 byte bigger_blue_count = 0;
+// Piny z tvé konfigurace (ADC1_CHANNEL_0 je pin 36, ADC1_CHANNEL_3 je pin 39 na ESP32)
+#define IR_PIN_1 36 // Levý infra senzor
+#define IR_PIN_2 39 // Pravý infra senzor
+
+// Práh pro analogové čtení senzoru. ESP32 analogRead vrací hodnoty 0 - 4095.
+// Záleží, jestli senzor při přiblížení hodnotu zvyšuje nebo snižuje.
+// Zatím je nastaveno, že pokud klesne pod 2000, vidí kostku. Možná to bude potřeba otočit.
+#define IR_THRESHOLD 2000
+
 void DriveToBricksWithSensors(int speed, int max_distance_mm, int timeout_ms) {
     man.motor(move.motorL).setCurrentPosition(0);
     man.motor(move.motorR).setCurrentPosition(0);
     
-    // Nacteni pocatecni hodnoty (pozadi)
-    sens.ReadRGB();
-    uint16_t base_clear_1 = sens.clear_1;
-    uint16_t base_clear_2 = sens.clear_2;
-    
-    if (base_clear_1 < 300) base_clear_1 = 1500;
-    if (base_clear_2 < 300) base_clear_2 = 1500;
-    
-    logMsg("Kalibrace pozadi - S1 Clear: %d, S2 Clear: %d", base_clear_1, base_clear_2);
+    // Nastavení pinů pro infračervené senzory
+    pinMode(IR_PIN_1, INPUT);
+    pinMode(IR_PIN_2, INPUT);
     
     int time = 0;
     int ticks_ML = 0;
     int ticks_MR = 0;
     int distance_ticks = max_distance_mm / move.mm_to_ticks;
     
-    logMsg("Jedem pro kostky s aktivnim sledovanim senzoru. Max: %d mm", max_distance_mm);
+    logMsg("Jedem pro kostky s aktivnim sledovanim infra senzoru. Max: %d mm", max_distance_mm);
     
     bool detected_both = false;
     int ticks_at_detection = 0;
@@ -166,22 +169,25 @@ void DriveToBricksWithSensors(int speed, int max_distance_mm, int timeout_ms) {
             ticks_ML = info.position();
         });
         
-        sens.ReadRGB();
+        int ir_val_1 = analogRead(IR_PIN_1);
+        int ir_val_2 = analogRead(IR_PIN_2);
+
         // Vypisujeme každých 100 ms pro přehlednost v logu
         if (time % 100 == 0) {
-            printf("Senzory - S1: %d (base %d), S2: %d (base %d), pozice: %d mm\n", 
-                   sens.clear_1, base_clear_1, sens.clear_2, base_clear_2, (int)(ticks_ML * move.mm_to_ticks));
+            printf("Pozice: %d mm, InfraL(36): %d, InfraR(39): %d\n", 
+                   (int)(ticks_ML * move.mm_to_ticks), ir_val_1, ir_val_2);
         }
         
-        // Zmena o 25 % dolu oproti kalibraci pozadi A zaroven hodnota pod 1200
-        bool brick1 = (sens.clear_1 < base_clear_1 * 0.75) && (sens.clear_1 < 1200);
-        bool brick2 = (sens.clear_2 < base_clear_2 * 0.75) && (sens.clear_2 < 1200);
+        // Přečtení infračervených senzorů analogově. 
+        // Pokud tvoje senzory při překážce hodnotu naopak ZVYŠUJÍ, změň "<" na ">".
+        bool brick1 = (ir_val_1 < IR_THRESHOLD);
+        bool brick2 = (ir_val_2 < IR_THRESHOLD);
         
         if (brick1 && brick2) {
             if (!detected_both) {
                 detected_both = true;
                 ticks_at_detection = ticks_ML;
-                logMsg("Detekovany obe kostky! S1: %d, S2: %d. Jedu rezervu 5 cm.", sens.clear_1, sens.clear_2);
+                logMsg("Detekovany obe kostky infra senzory! Jedu rezervu 5 cm.");
             }
         }
         

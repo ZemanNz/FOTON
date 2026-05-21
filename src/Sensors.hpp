@@ -1,11 +1,16 @@
 #include "RBCX.h"
 #include <Arduino.h>
 #include "Adafruit_TCS34725.h"
+#include "gyro.hpp"
+
+struct Grabber;
+extern Grabber grab;
 
 typedef enum {
         COLOR_RED,
         COLOR_GREEN,
         COLOR_BLUE,
+        NIC
     } Color;
 
 struct Sensors{
@@ -81,27 +86,91 @@ struct Sensors{
         }
     }
 
+    Color last_color_1 = NIC;
+    Color last_color_2 = NIC;
+
+    void SetLed(Color col, bool on) {
+        auto& leds = rb::Manager::get().leds();
+        if (col == COLOR_RED) leds.red(on);
+        else if (col == COLOR_GREEN) leds.green(on);
+        else if (col == COLOR_BLUE) leds.blue(on);
+    }
+
+    void UpdateLeds() {
+        auto& leds = rb::Manager::get().leds();
+        
+        // Zhasnout všechny LED na začátku
+        leds.red(false);
+        leds.green(false);
+        leds.blue(false);
+        leds.yellow(false);
+
+        // Pokud nemáme obě kostky
+        if (last_color_1 == NIC || last_color_2 == NIC) {
+            // Rozsvítíme pouze ty barvy, které reálně máme
+            if (last_color_1 != NIC) {
+                SetLed(last_color_1, true);
+            }
+            if (last_color_2 != NIC) {
+                SetLed(last_color_2, true);
+            }
+            return;
+        }
+
+        // Máme obě kostky
+        if (last_color_1 != last_color_2) {
+            // Různé barvy -> rozsvítit obě
+            SetLed(last_color_1, true);
+            SetLed(last_color_2, true);
+        } else {
+            // Stejné barvy -> rozsvítit barvu a žlutou
+            SetLed(last_color_1, true);
+            leds.yellow(true);
+        }
+    }
+
     Color GetColorRGB1() {
         ReadRGB();
-
-        if (r_1 > g_1 && r_1 > b_1) {
-            return COLOR_RED;
-        } else if (b_1 > g_1 * 0.80f) {
-            return COLOR_BLUE;
-        } else {
-            return COLOR_GREEN;
+        if(!grab.je_kostka_v_klepete(1)){
+            last_color_1 = NIC;
+            UpdateLeds();
+            return NIC;
         }
+
+        Color result = NIC;
+        if (r_1 > g_1 && r_1 > b_1) {
+            result = COLOR_RED;
+        } else if (b_1 > g_1 * 0.80f) {
+            result = COLOR_BLUE;
+        } else {
+            result = COLOR_GREEN;
+        }
+
+        last_color_1 = result;
+        UpdateLeds();
+        return result;
     }
 
     Color GetColorRGB2() {
         ReadRGB();
 
-        if (r_2 > g_2 && r_2 > b_2) {
-            return COLOR_RED;
-        } else if (b_2 > g_2 * 0.80f) {
-            return COLOR_BLUE;
-        } else {
-            return COLOR_GREEN;
+        if(!grab.je_kostka_v_klepete(0)){
+            last_color_2 = NIC;
+            UpdateLeds();
+            return NIC;
         }
+
+        Color result = NIC;
+        if (r_2 > g_2 && r_2 > b_2) {
+            result = COLOR_RED;
+        } else if (b_2 > g_2 * 0.80f) {
+            result = COLOR_BLUE;
+        } else {
+            result = COLOR_GREEN;
+        }
+
+        last_color_2 = result;
+        UpdateLeds();
+        return result;
     }
 };

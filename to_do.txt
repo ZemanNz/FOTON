@@ -29,3 +29,4 @@ FRONT S1: R: 75.1, G: 83.8, B: 78.6, Clear: 146 (Modra) | Gyro [deg]: X=0.00, Y=
 - mam kostku ... ne senzorem, ale uhlem serva... uz to mam asina vyskovu....
 - lepsi se orientovani na hristi, ne tolikrat se otacet
 - lepsi navrat
+- gyro pretaci

@@ -54,7 +54,7 @@ inline void gyroTask(void *pvParameters) {
         state.angleY += gy * (180.0f / PI) * dt;
         state.angleZ += gz * (180.0f / PI) * dt;
 
-        vTaskDelay(pdMS_TO_TICKS(10)); // 100 Hz update rate
+        vTaskDelay(pdMS_TO_TICKS(5)); // 100 Hz update rate
     }
 }
 

@@ -26,7 +26,7 @@ struct Movement
    *
    * @return None
    */
-  void ArcRight(int angle, int radius)
+  void ArcRight(int angle, int radius, int speed = 5200)
   {
     // Nastaveni pocitadla tics na 0 pro oba motory
     man.motor(motorL).setCurrentPosition(0);
@@ -35,7 +35,7 @@ struct Movement
     double inner_lenght = (((2 * PI * radius) / 360) * angle) / mm_to_ticks;                  // vzdalenost, kterou musi vnitrni kolo v oblouku ujet v tics enkoderu
     double outer_lenght = (((2 * 3.14 * (radius + wheel_base)) / 360) * angle) / mm_to_ticks; // vzdalenost, kterou musi vnejsi kolo v oblouku ujet v tics enkoderu
     // Serial.println(inner_lenght);
-    int outer_sped = 5200;                                         // rychlost vnejsiho kola
+    int outer_sped = speed;                                         // rychlost vnejsiho kola
     int inner_speed = -(outer_sped * inner_lenght) / outer_lenght; // vypocet pro rychlost vnitrniho kola
     // Serial.println(inner_speed);
     int tics_M2 = 0;
@@ -54,7 +54,7 @@ struct Movement
     }
   }
 
-  void ArcLeft(int angle, int radius)
+  void ArcLeft(int angle, int radius, int speed = 5200)
   {
     man.motor(motorL).setCurrentPosition(0);
     man.motor(motorR).setCurrentPosition(0);
@@ -62,7 +62,7 @@ struct Movement
     double inner_lenght = (((2 * PI * radius) / 360) * angle) / mm_to_ticks;
     double outer_lenght = (((2 * 3.14 * (radius + wheel_base)) / 360) * angle) / mm_to_ticks;
     Serial.println(inner_lenght);
-    int outer_sped = -5200;
+    int outer_sped = -speed;
     int inner_speed = -(outer_sped * inner_lenght) / outer_lenght;
     Serial.println(inner_speed);
     int tics_M2 = 0;
@@ -117,6 +117,11 @@ struct Movement
     angle -= 4;
     if (angle < 0) angle = 0;
 
+    // Zastavíme a počkáme na ustálení robota před otáčením
+    man.motor(motorL).speed(0);
+    man.motor(motorR).speed(0);
+    ::delay(400);
+
     // Resetujeme gyroskop na ESP32
     resetGyroZ();
     
@@ -133,11 +138,18 @@ struct Movement
     float ramp_up_deg = 15.0f;
     float ramp_down_deg = 30.0f;
 
+    Serial.println("START otaceni doleva");
+    int print_ctr = 0;
+
     // Otáčíme se doleva, úhel roste do kladných hodnot
     while (gyro_angle_z < (float)angle)
     {
       checkEmergencyStop();
       updateGyroUart(); // Průběžná aktualizace úhlu z UARTu
+      
+      if (print_ctr++ % 10 == 0) {
+          Serial.printf("Z pozice: %.2f\n", gyro_angle_z);
+      }
       
       float current_angle = gyro_angle_z;
       float error = (float)angle - current_angle;
@@ -169,12 +181,18 @@ struct Movement
     }
     man.motor(motorR).speed(0);
     man.motor(motorL).speed(0);
+    Serial.println("STOP otaceni doleva");
   }
 
   void TurnRight(int angle)
   {
     angle -= 4;
     if (angle < 0) angle = 0;
+
+    // Zastavíme a počkáme na ustálení robota před otáčením
+    man.motor(motorL).speed(0);
+    man.motor(motorR).speed(0);
+    ::delay(400);
 
     // Resetujeme gyroskop na ESP32
     resetGyroZ();
@@ -192,11 +210,18 @@ struct Movement
     float ramp_up_deg = 15.0f;
     float ramp_down_deg = 30.0f;
 
+    Serial.println("START otaceni doprava");
+    int print_ctr = 0;
+
     // Otáčíme se doprava, úhel klesá do záporných hodnot
     while (gyro_angle_z > -(float)angle)
     {
       checkEmergencyStop();
       updateGyroUart(); // Průběžná aktualizace úhlu z UARTu
+      
+      if (print_ctr++ % 10 == 0) {
+          Serial.printf("Z pozice: %.2f\n", gyro_angle_z);
+      }
       
       float current_angle = fabs(gyro_angle_z);
       float error = (float)angle - current_angle;
@@ -228,9 +253,10 @@ struct Movement
     }
     man.motor(motorR).speed(0);
     man.motor(motorL).speed(0);
+    Serial.println("STOP otaceni doprava");
   }
 
-  void BackwardUntillWall(unsigned long timeout = 10000)
+  void BackwardUntillWall(unsigned long timeout = 10000, int speed = 2500)
   {
     int start_timer = millis();
     while ((man.buttons().left() == 0 || man.buttons().right() == 0) && (millis() - start_timer < timeout)) //left je opravdu leve tlaitko
@@ -245,16 +271,16 @@ struct Movement
       }
 
       if(man.buttons().left() == 1){
-        man.motor(motorL).speed(-3000);
-        man.motor(motorR).speed(1000);
+        man.motor(motorL).speed(-(speed + 500));
+        man.motor(motorR).speed(speed > 1500 ? speed - 1500 : 1000);
       }
       else if(man.buttons().right() == 1){
-        man.motor(motorR).speed(3000);
-        man.motor(motorL).speed(-1000);  
+        man.motor(motorR).speed(speed + 500);
+        man.motor(motorL).speed(-(speed > 1500 ? speed - 1500 : 1000));  
       }
       else{
-      man.motor(motorR).speed(2500);
-      man.motor(motorL).speed(-2500);
+      man.motor(motorR).speed(speed);
+      man.motor(motorL).speed(-speed);
       }
       delay(10);
     }

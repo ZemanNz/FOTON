@@ -152,7 +152,8 @@ struct Sensors{
 
     Color GetColorRGB1() {
         ReadRGB();
-        if(!grab.je_kostka_v_klepete(1)){
+        // Místo staré metody klepet používáme novou přesnější detekci pomocí IR
+        if(!IsCubeInBiggerArmIR()){
             last_color_1 = NIC;
             UpdateLeds();
             return NIC;
@@ -175,7 +176,8 @@ struct Sensors{
     Color GetColorRGB2() {
         ReadRGB();
 
-        if(!grab.je_kostka_v_klepete(0)){
+        // Místo staré metody klepet používáme novou přesnější detekci pomocí IR
+        if(!IsCubeInSmallerArmIR()){
             last_color_2 = NIC;
             UpdateLeds();
             return NIC;

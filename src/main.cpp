@@ -332,23 +332,26 @@ void WaitForStart()
           move.BackwardUntillWall();
         }
         
-        // Pravé tlačítko: otestování funkce je_kostka_v_klepete pro menší rameno
+        // Pravé tlačítko: otestování infra detekce pro menší (krátké) rameno
         if (man.buttons().right() == 1) {
-            delay(1000);
-            move.TurnLeft(90);
-
-        }
-        
-        // Levé tlačítko: otestování funkce je_kostka_v_klepete pro větší rameno
-        if (man.buttons().left() == 1) {
-            bool kostka = grab.je_kostka_v_klepete(1);
+            bool kostka = sens.IsCubeInSmallerArmIR();
             if (kostka) {
-                Serial.println("Kostka JE ve vetsim klepetu!");
+                Serial.println("Kostka JE v mensim klepetu (podle IR)!");
             } else {
-                Serial.println("Kostka NENI ve vetsim klepetu.");
+                Serial.println("Kostka NENI v mensim klepetu (podle IR).");
             }
             delay(500);
-            grab.BiggerArmOpen(); // Vrácení do otevřené pozice po provedení testu
+        }
+        
+        // Levé tlačítko: otestování infra detekce pro větší (dlouhé) rameno
+        if (man.buttons().left() == 1) {
+            bool kostka = sens.IsCubeInBiggerArmIR();
+            if (kostka) {
+                Serial.println("Kostka JE ve vetsim klepetu (podle IR)!");
+            } else {
+                Serial.println("Kostka NENI ve vetsim klepetu (podle IR).");
+            }
+            delay(500);
         }
         
         // Spodní tlačítko (DOWN): výpis uloženého log bufferu
@@ -400,10 +403,10 @@ void GoToField(){
   logMsg("go to field1");
   move.ArcRight(170,180);
   logMsg("go to field2");
-  //move.Straight(3200,100,5000);
+  move.Straight(3200,40,5000);
   move.ArcLeft(160, 140);
   logMsg("go to field3");
-  move.Straight(32000, 1450,4000);
+  move.Straight(32000, 1150,4000);
   logMsg("go to field4");
   move.Acceleration(32000, 100, 320);
   logMsg("go to field5");
@@ -688,7 +691,7 @@ void setup(){
     logMsg("\n--- Start kola %d ---", lap + 1);
     logMsg("Jedu dopředu pro vyhledání kostek...");
     move.Acceleration(500, 20000, 210);
-    move.Straight(32000, 800 - lap*90, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+    move.Straight(32000, 800 - lap*120, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
     move.Stop();
     
     logMsg("Otáčím se k nakládací rampě/stěně.");

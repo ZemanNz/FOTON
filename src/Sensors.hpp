@@ -21,6 +21,12 @@ struct Sensors{
     static const uint8_t RGB_SDA_down_pin = 14; // *************************************************
     static const uint8_t RGB_SCL_down_pin = 26; 
 
+    // IR senzory
+    static const uint8_t IR_PIN_BIGGER = 27;  // Infra senzor na delším rameni (větším)
+    static const uint8_t IR_PIN_SMALLER = 25; // Infra senzor na kratším rameni (menším)
+    static const uint16_t IR_THRESHOLD = 2000;
+
+
     Adafruit_TCS34725 rgb_front = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_1X);
     Adafruit_TCS34725 rgb_down = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_1X);
 
@@ -49,6 +55,10 @@ struct Sensors{
             Serial.printf("Can not connect to the down RGB sensor");
             delay(500); 
         }
+
+        // Inicializace infračervených senzorů
+        pinMode(IR_PIN_BIGGER, INPUT);
+        pinMode(IR_PIN_SMALLER, INPUT);
     }
 
     void ReadRGB(){
@@ -85,6 +95,17 @@ struct Sensors{
             return false;
         }
     }
+
+    bool IsCubeInBiggerArmIR() {
+        // Nula znamená, že vidí kostku. Vracíme true, pokud je hodnota pod limitem (2000).
+        return analogRead(IR_PIN_BIGGER) < IR_THRESHOLD;
+    }
+
+    bool IsCubeInSmallerArmIR() {
+        // Nula znamená, že vidí kostku. Vracíme true, pokud je hodnota pod limitem (2000).
+        return analogRead(IR_PIN_SMALLER) < IR_THRESHOLD;
+    }
+
 
     Color last_color_1 = NIC;
     Color last_color_2 = NIC;

@@ -419,7 +419,65 @@ int DIST_MID   = 600;  // Střední vzdálenost (vždy pro zelenou uprostřed)
 int DIST_LONG  = 1000; // Dlouhá vzdálenost (zhruba metr, pokud přejíždíme k červené/modré z opačné stěny)
 
 void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
-    bool is_left_wall = (lap <= 3); // lap 1, 2, 3 znamená levá stěna (ta u červené poličky)
+    bool is_left_wall = (lap <= 4); // lap 1, 2, 3 znamená levá stěna (ta u červené poličky)
+
+    // SPECIÁLNÍ PŘÍPADY - Vhození dvou kostek na pomezí
+    int target_dist = -1;
+
+    // Od levé stěny
+    if (is_left_wall) {
+        if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
+            target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí červené a zelené (390)
+        } else if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
+            target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a modré (800 + 400 = 1200 mm)
+        }
+    } 
+    // Od pravé stěny (pro úplnost, symetricky)
+    else {
+        if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
+            target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí modré a zelené (390 zprava)
+        } else if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
+            target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a červené (800 + 40 = 840 mm zprava)
+        }
+    }
+
+    // Pokud došlo k jedné ze speciálních situací
+    if (target_dist != -1) {
+        logMsg("Specialni pripad: Vyhazuji obe kostky najednou na pomezi (vzdalenost %d).", target_dist);
+        
+        is_left_wall ? move.TurnLeft(90) : move.TurnRight(90);
+        move.BackwardUntillWall();
+        
+        move.Straight(2500, target_dist, 6000);
+        move.Stop();
+        
+        is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
+        move.BackwardUntillWall();
+        
+        logMsg("Přesouvám obě ramena dozadu (vyhoz na pomezi).");
+        arm.SmallerBack();
+        arm.BiggerBack();
+        delay(1000);
+        grab.SmallerArmOpen();
+        grab.BiggerArmOpen();
+        delay(1000);
+        logMsg("Vracím obě ramena nahoru.");
+        arm.SmallerUp();
+        arm.BiggerUp();
+        delay(200);
+        
+        move.Straight(2000, 100, 1000);
+        
+        // Aktualizace globálních proměnných pro případné další využití
+        if (target_dist < 500) {
+            bliz_leva = is_left_wall;
+            bliz_prava = !is_left_wall;
+        } else {
+            bliz_leva = !is_left_wall;
+            bliz_prava = is_left_wall;
+        }
+        return;
+    }
 
     struct Delivery {
         Color color;
@@ -625,12 +683,12 @@ void setup(){
   move.BackwardUntillWall();
 
 
-  for (size_t lap = 0; (lap < 6) && (millis()/1000 - start_time < final_time); lap++)
+  for (size_t lap = 0; (lap < 9) && (millis()/1000 - start_time < final_time); lap++)
   {
     logMsg("\n--- Start kola %d ---", lap + 1);
     logMsg("Jedu dopředu pro vyhledání kostek...");
     move.Acceleration(500, 20000, 210);
-    move.Straight(32000, 800 - lap*150, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
+    move.Straight(32000, 800 - lap*90, 10000); // Příkaz pro pohyb robota rovně na 1 metr s rychlostí 2500 a timeoutem 5 sekund
     move.Stop();
     
     logMsg("Otáčím se k nakládací rampě/stěně.");
@@ -691,8 +749,8 @@ void setup(){
   move.Acceleration(300, 10000, 250);
   move.ArcRight(90, 190);
   
-  move.Acceleration(300, 10000, 100);
-  move.ArcLeft(170, 210);
+  move.Acceleration(300, 10000, 120);
+  move.ArcLeft(176, 180);
   move.Straight(4000, 10000, 32000);
   logMsg("Robot se vrátil domů. Konec programu.");
 

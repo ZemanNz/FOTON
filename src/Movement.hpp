@@ -294,6 +294,30 @@ struct Movement
     }
   }
 
+  void Backward(int speed, int distance, int timeout)
+  {
+    man.motor(motorL).setCurrentPosition(0);
+    man.motor(motorR).setCurrentPosition(0);
+    int time = 0;
+    int ticks_ML = 0;
+    int ticks_MR = 0;
+    distance = distance / mm_to_ticks;
+    Serial.println(distance);
+    while (ticks_ML < distance && time < timeout)
+    {
+      checkEmergencyStop();
+      man.motor(motorL).speed(-speed);
+      man.motor(motorR).speed(speed);
+      man.motor(motorR).requestInfo([&ticks_MR](rb::Motor &info)
+                                    { ticks_MR = info.position(); });
+      man.motor(motorL).requestInfo([&ticks_ML](rb::Motor &info)
+                                    { ticks_ML = -info.position(); });
+
+      delay(10);
+      time = time + 10;
+    }
+  }
+
   void Stop()
   {
     man.motor(motorL).speed(0);

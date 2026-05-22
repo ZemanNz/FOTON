@@ -146,8 +146,21 @@ void DriveToBricksWithSensors(int speed, int max_distance_mm, int timeout_ms) {
     while (ticks_ML < distance_ticks && time < timeout_ms) {
         checkEmergencyStop();
         
-        man.motor(move.motorL).speed(speed);
-        man.motor(move.motorR).speed(-speed);
+        // Třepání (shaking) - každých 300 ms změníme tah motorů o cca 10 %
+        int shake_offset = speed * 0.10;
+        int speed_L = speed;
+        int speed_R = speed;
+        
+        if ((time / 300) % 2 == 0) {
+            speed_L += shake_offset;
+            speed_R -= shake_offset;
+        } else {
+            speed_L -= shake_offset;
+            speed_R += shake_offset;
+        }
+        
+        man.motor(move.motorL).speed(speed_L);
+        man.motor(move.motorR).speed(-speed_R);
         
         man.motor(move.motorR).requestInfo([&ticks_MR](rb::Motor &info) {
             ticks_MR = -info.position();
@@ -343,15 +356,12 @@ void WaitForStart()
             delay(500);
         }
         
-        // Levé tlačítko: otestování infra detekce pro větší (dlouhé) rameno
+        // Levé tlačítko: otestování funkce DriveToBricksWithSensors s třepáním
         if (man.buttons().left() == 1) {
-            bool kostka = sens.IsCubeInBiggerArmIR();
-            if (kostka) {
-                Serial.println("Kostka JE ve vetsim klepetu (podle IR)!");
-            } else {
-                Serial.println("Kostka NENI ve vetsim klepetu (podle IR).");
-            }
-            delay(500);
+            Serial.println("Testuji DriveToBricksWithSensors (trepani)...");
+            // Zavolá funkci se zkušebními parametry
+            DriveToBricksWithSensors(2500, 550, 6000);
+            delay(500); // Krátká pauza proti nechtěnému dvojkliku
         }
         
         // Spodní tlačítko (DOWN): výpis uloženého log bufferu
@@ -720,7 +730,7 @@ void setup(){
     move.Straight(2000, 150, 2000);
     grab.SmallerArmClose();
     grab.BiggerArmClose();
-    delay(200);
+    delay(500);
     
     Color smaller_arm_brick = sens.GetColorRGB2();
     Color bigger_arm_brick = sens.GetColorRGB1();
@@ -729,9 +739,16 @@ void setup(){
     logMsg("V malém klepetu jsem chytil %s barvu.", s_color);
     logMsg("V dlouhém (velkém) klepetu jsem chytil %s barvu.", b_color);
     
-    BrickDeliver(smaller_arm_brick, bigger_arm_brick, lap);
-    grab.SmallerArmOpen();
-    grab.BiggerArmOpen();
+    if (smaller_arm_brick == NIC && bigger_arm_brick == NIC) {
+        logMsg("Nechytil jsem ani jednu kostku! Couvám o 10 cm, abych je nesmetl.");
+        grab.SmallerArmOpen();
+        grab.BiggerArmOpen();
+        move.Backward(2000, 100, 2000); // Zacouvat 100 mm (10 cm) rychlostí 2000
+    } else {
+        BrickDeliver(smaller_arm_brick, bigger_arm_brick, lap);
+        grab.SmallerArmOpen();
+        grab.BiggerArmOpen();
+    }
     
     move.Stop();
     move.TurnRight(90);
@@ -743,7 +760,7 @@ void setup(){
   move.Straight(1000, 40, 1000);
   move.TurnLeft(90);
   move.Acceleration(500, 30000, 300);
-  move.Straight(32000, 1700, 10000); // 300 + 2200 = 2.5 metru popředu
+  move.Straight(32000, 1800, 10000); // 300 + 2200 = 2.5 metru popředu
   move.TurnRight(180);
   move.BackwardUntillWall(10000);
   move.Straight(1000, 140, 1000);

@@ -39,7 +39,7 @@ struct Grabber
         servoBus.limit(1, Angle::deg(0), Angle::deg(50));
         servoBus.setAutoStopParams(
             SmartServoBus::AutoStopParams{
-                .max_diff_centideg = 250,
+                .max_diff_centideg = 550,
                 .max_diff_readings = 3,
             });
         Serial.println("Smart Servo 1 (velke klepeto) inicializovano (limity: 0-50)");

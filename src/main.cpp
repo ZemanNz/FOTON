@@ -67,6 +67,15 @@ void resetGyroZ() {
     gyro_angle_z = 0.0f;
 }
 
+void calibrateGyro() {
+    CommandPacket pkt;
+    pkt.sync1 = 0x56;
+    pkt.sync2 = 0x78;
+    pkt.cmd = 'C';
+    Serial1.write((const uint8_t*)&pkt, sizeof(pkt));
+    gyro_angle_z = 0.0f;
+}
+
 void checkEmergencyStop() {
     if (man.buttons().down() == 1) {
         man.motor(rb::MotorId::M1).speed(0);
@@ -272,6 +281,7 @@ void DriveToBricksWithSensorsFast(int speed, int max_distance_mm, int timeout_ms
     move.Stop();
 }
 
+/*
 void cteni_barevnych() {
     logMsg("Rezim cteni barevnych senzoru zapnut. Pro ukonceni resetujte robota.");
     while (true) {
@@ -284,6 +294,20 @@ void cteni_barevnych() {
             sens.r_1, sens.g_1, sens.b_1, sens.clear_1, s1_col,
             sens.r_2, sens.g_2, sens.b_2, sens.clear_2, s2_col);
         delay(500);
+    }
+}
+*/
+
+void vypis_gyra() {
+    logMsg("Kalibruji gyroskop (drz robota v klidu)...");
+    calibrateGyro();
+    delay(1200); // Počkáme na provedení kalibrace (trvá 1.0 sekundy)
+    logMsg("Rezim neustaleho vypisu gyroskopu zapnut. Pro ukonceni resetujte robota.");
+    while (true) {
+        checkEmergencyStop();
+        updateGyroUart();
+        Serial.printf("Gyro Angle Z: %.2f\n", gyro_angle_z);
+        delay(100);
     }
 }
 
@@ -1034,7 +1058,7 @@ void setup(){
   logMsg("Tlacitko ON    -> Konzervativni jizda");
   logMsg("Tlacitko UP    -> Agresivni jizda (zatim stejna jako konzervativni)");
   logMsg("Tlacitko RIGHT -> Zkouska klepet");
-  logMsg("Tlacitko LEFT  -> Cteni barevnych senzoru");
+  logMsg("Tlacitko LEFT  -> Neustaly vypis gyra");
 
   logMsg("Tlacitko OFF   -> Otocit se o 90 stupnu doleva");
 
@@ -1059,7 +1083,7 @@ void setup(){
           delay(500); // ochrana proti zakmitum
       }
       if (man.buttons().left() == 1) {
-          cteni_barevnych();
+          vypis_gyra();
           break;
       }
       

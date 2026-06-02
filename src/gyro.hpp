@@ -18,6 +18,7 @@ struct GyroState {
     float rawOffsetY = 0.0f;
     float rawOffsetZ = 0.0f;
     bool initialized = false;
+    volatile bool calibrateRequested = false;
 };
 
 // Singleton getter to store state safely in header-only library
@@ -32,6 +33,33 @@ inline void gyroTask(void *pvParameters) {
     unsigned long lastTime = micros();
     
     while (true) {
+        if (state.calibrateRequested) {
+            state.calibrateRequested = false;
+            float sumX = 0.0f, sumY = 0.0f, sumZ = 0.0f;
+            const int samples = 100;
+            for (int i = 0; i < samples; i++) {
+                sensors_event_t a_c, g_c, temp_c;
+                state.mpu.getEvent(&a_c, &g_c, &temp_c);
+                sumX += g_c.gyro.x;
+                sumY += g_c.gyro.y;
+                sumZ += g_c.gyro.z;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+            state.rawOffsetX = sumX / samples;
+            state.rawOffsetY = sumY / samples;
+            state.rawOffsetZ = sumZ / samples;
+
+            state.angleX = 0.0f;
+            state.angleY = 0.0f;
+            state.angleZ = 0.0f;
+            state.offsetX = 0.0f;
+            state.offsetY = 0.0f;
+            state.offsetZ = 0.0f;
+            
+            lastTime = micros();
+            continue;
+        }
+
         unsigned long currentTime = micros();
         float dt = (float)(currentTime - lastTime) / 1000000.0f;
         lastTime = currentTime;
@@ -156,6 +184,11 @@ inline void gyroResetY() {
 inline void gyroResetZ() {
     auto &state = getGyroState();
     state.offsetZ = state.angleZ;
+}
+
+inline void gyroRequestCalibration() {
+    auto &state = getGyroState();
+    state.calibrateRequested = true;
 }
 
 inline void gyroResetAll() {

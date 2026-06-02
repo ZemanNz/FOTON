@@ -92,6 +92,9 @@ void receiveCommands() {
         if (cmd == 'R' || cmd == 'r') {
             gyroResetZ();
             Serial.println("RBCX příkaz: Robustní Reset osy Z (Heading) proveden.");
+        } else if (cmd == 'C' || cmd == 'c') {
+            gyroRequestCalibration();
+            Serial.println("RBCX příkaz: Robustní Rekalibrace biasu gyroskopu spuštěna.");
         }
     }
 }

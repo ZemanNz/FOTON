@@ -326,6 +326,42 @@ void zkouska_klepet() {
     logMsg("Zkouska klepet dokoncena.");
 }
 
+void test_absolutniho_otaceni() {
+    logMsg("Zkouska absolutniho otaceni spustena.");
+    logMsg("Robot nyni bere jako absolutni 0 aktualni natoceni.");
+    resetGyroZ();
+    
+    // Aktivní načítání, aby se 0 opravdu propsala
+    uint32_t start_wait = millis();
+    while (millis() - start_wait < 200) {
+        updateGyroUart();
+        delay(5);
+    }
+
+    logMsg("Muzes me fyzicky natocit (vychylit ze smeru).");
+    logMsg("Jakmile chces zpatky na nulu, stiskni znovu tlacitko RIGHT.");
+    logMsg("Stiskni DOWN pro ukonceni teto zkousky.");
+
+    while (true) {
+        updateGyroUart(); // Nezapomeneme prubezne nacitat UART z gyra
+
+        if (man.buttons().right() == 1) {
+            logMsg("Vracim se na puvodni 0...");
+            move.TurnAbsolute(0.0f);
+            logMsg("Jsem zpatky na 0. Muzes testovat dal.");
+            delay(500); // ochrana proti zakmitu tlacitka
+        }
+
+        if (man.buttons().down() == 1) {
+            logMsg("Konec zkousky absolutniho otaceni.");
+            delay(500);
+            break;
+        }
+
+        delay(10);
+    }
+}
+
 void CheckBattery()
 {
     const auto &bat = man.battery();
@@ -387,6 +423,7 @@ void GoToFieldFast(){
 
 bool bliz_prava = false;
 bool bliz_leva = false;
+bool enable_special_delivery = false; // aktivuje/deaktivuje vhození na pomezí barev
 
 // Vzdálenosti pro doručování kostek (v mm od stěny, o kterou se robot opře)
 int DIST_SHORT = 180;  // Krátká vzdálenost (pro modrou nebo červenou, pokud jsme u příslušné stěny)
@@ -399,20 +436,22 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
     // SPECIÁLNÍ PŘÍPADY - Vhození dvou kostek na pomezí
     int target_dist = -1;
 
-    // Od levé stěny
-    if (is_left_wall) {
-        if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
-            target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí červené a zelené (390)
-        } else if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
-            target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a modré (800 + 400 = 1200 mm)
-        }
-    } 
-    // Od pravé stěny (pro úplnost, symetricky)
-    else {
-        if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
-            target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí modré a zelené (390 zprava)
-        } else if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
-            target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a červené (800 + 40 = 840 mm zprava)
+    if (enable_special_delivery) {
+        // Od levé stěny
+        if (is_left_wall) {
+            if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
+                target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí červené a zelené (390)
+            } else if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
+                target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a modré (800 + 400 = 1200 mm)
+            }
+        } 
+        // Od pravé stěny (pro úplnost, symetricky)
+        else {
+            if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
+                target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí modré a zelené (390 zprava)
+            } else if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
+                target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a červené (800 + 40 = 840 mm zprava)
+            }
         }
     }
 
@@ -626,20 +665,22 @@ void BrickDeliverFast(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
     // SPECIÁLNÍ PŘÍPADY - Vhození dvou kostek na pomezí
     int target_dist = -1;
 
-    // Od levé stěny
-    if (is_left_wall) {
-        if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
-            target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí červené a zelené (390)
-        } else if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
-            target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a modré (800 + 400 = 1200 mm)
-        }
-    } 
-    // Od pravé stěny (pro úplnost, symetricky)
-    else {
-        if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
-            target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí modré a zelené (390 zprava)
-        } else if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
-            target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a červené (800 + 40 = 840 mm zprava)
+    if (enable_special_delivery) {
+        // Od levé stěny
+        if (is_left_wall) {
+            if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
+                target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí červené a zelené (390)
+            } else if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
+                target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a modré (800 + 400 = 1200 mm)
+            }
+        } 
+        // Od pravé stěny (pro úplnost, symetricky)
+        else {
+            if (bigger_arm_brick == COLOR_GREEN && smaller_arm_brick == COLOR_BLUE) {
+                target_dist = (DIST_SHORT + DIST_MID) / 2; // pomezí modré a zelené (390 zprava)
+            } else if (bigger_arm_brick == COLOR_RED && smaller_arm_brick == COLOR_GREEN) {
+                target_dist = ((DIST_MID + DIST_LONG) / 2) + 40; // pomezí zelené a červené (800 + 40 = 840 mm zprava)
+            }
         }
     }
 
@@ -1057,7 +1098,7 @@ void setup(){
   logMsg("--- VYBERTE PROGRAM ---");
   logMsg("Tlacitko ON    -> Konzervativni jizda");
   logMsg("Tlacitko UP    -> Agresivni jizda (zatim stejna jako konzervativni)");
-  logMsg("Tlacitko RIGHT -> Zkouska klepet");
+  logMsg("Tlacitko RIGHT -> Zkouska absolutniho navratu na nulu");
   logMsg("Tlacitko LEFT  -> Neustaly vypis gyra");
 
   logMsg("Tlacitko OFF   -> Otocit se o 90 stupnu doleva");
@@ -1079,7 +1120,7 @@ void setup(){
           break;
       }
       if (man.buttons().right() == 1) {
-          zkouska_klepet();
+          test_absolutniho_otaceni();
           delay(500); // ochrana proti zakmitum
       }
       if (man.buttons().left() == 1) {

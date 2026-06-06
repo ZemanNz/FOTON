@@ -545,6 +545,9 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
     if (first.color == NIC) {
         delay(200);
         move.Straight(2000, 100, 1000);
+        delay(200);
+        move.TurnAbsolute(90); // Otoč přesně na 0 stupňů pro správné zarovnání s rampou
+        delay(100);
     } else {
         // 1. Doručení (bližší kostka)
         const char* color_name1 = (first.color == COLOR_RED) ? "ČERVENOU" : ((first.color == COLOR_GREEN) ? "ZELENOU" : "MODROU");
@@ -554,6 +557,7 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         move.BackwardUntillWall();
         
         move.Straight(2500, first.distance, 6000);
+
         move.Stop();
         
         is_left_wall ? move.TurnRight(90) : move.TurnLeft(90);
@@ -595,6 +599,9 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
         }
         
         move.Straight(2000, 100, 1000);
+        delay(200);
+        move.TurnAbsolute(90); // Otoč přesně na 0 stupňů pro správné zarovnání s rampou
+        delay(100);
         
         // Aktualizace is_left_wall podle toho, kde jsme vykládali
         if (first.color == COLOR_RED || first.color == COLOR_GREEN) {
@@ -643,6 +650,9 @@ void BrickDeliver(Color smaller_arm_brick, Color bigger_arm_brick, int lap){
             }
             
             move.Straight(2000, 100, 1000);
+            delay(200);
+            move.TurnAbsolute(90); // Otoč přesně na 0 stupňů pro správné zarovnání s rampou
+            delay(100);
             
             // Aktualizace is_left_wall podle druhé barvy
             if (second.color == COLOR_RED || second.color == COLOR_GREEN) {
@@ -966,6 +976,9 @@ void konzervativni_jizda() {
     move.Stop();
     move.TurnRight(90);
     move.BackwardUntillWall();
+    delay(200);
+    move.TurnAbsolute(0); // Otoč přesně na 0 stupňů pro správné zarovnání s rampou
+    delay(100);
   }
   logMsg("Konec hlavní smyčky. Zvedám ramena a jedu domů.");
   arm.BiggerUp();

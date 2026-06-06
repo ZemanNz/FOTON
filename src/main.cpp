@@ -901,6 +901,9 @@ void konzervativni_jizda() {
   logMsg("Otačení a couvání k zadní stěně...");
   move.TurnLeft(90);
   move.BackwardUntillWall();
+  delay(200);
+  resetGyroZ(); // Nastav aktuální natočení jako 0 pro přesnější otáčení v hlavní smyčce
+  delay(200); // Krátká pauza po resetu gyra
 
   for (size_t lap = 0; (lap < 9) && (millis()/1000 - start_time < final_time); lap++)
   {
@@ -919,6 +922,7 @@ void konzervativni_jizda() {
     
     logMsg("Najíždím ke kostkám a zastavuji před nimi.");
     move.BackwardUntillWall();
+    
     move.Straight(5000, 300, 3000);
     DriveToBricksWithSensors(2500, 550, 6000);
     
@@ -929,6 +933,9 @@ void konzervativni_jizda() {
     
     logMsg("Couvám ke stěně a otevírám klepeta.");
     move.BackwardUntillWall();
+    delay(200);
+    move.TurnAbsolute(90); // Otoč přesně na 0 stupňů pro správné zarovnání s rampou
+    delay(100);
     grab.SmallerArmOpen();
     grab.BiggerArmOpen();
     
@@ -1013,6 +1020,9 @@ void agresivni_jizda() {
     
     logMsg("Najíždím ke kostkám a zastavuji před nimi.");
     move.BackwardUntillWall(10000, 3000);
+    delay(200);
+    move.TurnAbsolute(90); // Otoč přesně na 0 stupňů pro správné zarovnání s rampou
+    delay(200);;
     move.Straight(6000, 300, 3000);
     DriveToBricksWithSensorsFast(3000, 550, 6000);
     
